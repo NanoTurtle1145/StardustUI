@@ -1,7 +1,7 @@
 # StardustUI✨
 ![](https://img.shields.io/badge/version-dev0.1-blue)![](https://img.shields.io/github/forks/xingji-studio/StardustUI)![](https://img.shields.io/github/stars/xingji-studio/StardustUI)
 
-**简体中文**  [English](/README.md)
+**简体中文**  [English](https://github.com/xingji-studio/StardustUI/blob/main/README.md)
 
 ---   
 
@@ -15,7 +15,7 @@
 ![XJ380 上的 Hello World](https://nutpacks.oss-cn-beijing.aliyuncs.com/StardustUI/Images/Image_1777641206153_467.jpg)XJ380 上的 Hello World
 
 ## 如何使用🎊
-### [文档](docs.md)
+### [文档](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fzh-cn%2Fdocs.md)
 
 ## Star 历史
 
