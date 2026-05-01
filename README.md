@@ -1,7 +1,7 @@
 # StardustUI✨
 ![](https://img.shields.io/badge/version-dev0.1-blue)![](https://img.shields.io/github/forks/xingji-studio/StardustUI)![](https://img.shields.io/github/stars/xingji-studio/StardustUI)
 
-**English**  [简体中文](./docs/zh-cn/readme.md)
+**English**  [简体中文](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fzh-cn%2FREADME.md)
 
 ---   
 
