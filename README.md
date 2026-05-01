@@ -15,7 +15,7 @@
 ![HelloWorld on XJ380](https://nutpacks.oss-cn-beijing.aliyuncs.com/StardustUI/Images/Image_1777641206153_467.jpg)Hello World on XJ380
 
 ## How to use it🎊
-### [Docs](./docs/zh-cn/docs.md)
+### [Docs](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fen-us%2Fdocs.md)
 
 ## Star History
 
