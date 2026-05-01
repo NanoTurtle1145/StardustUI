@@ -1,0 +1,238 @@
+#pragma once
+
+#include "./stdint.h"
+#include "./krlibc.h"
+#include "./liballoc/alloc.h"
+
+// XJ380API POSIX Edition
+#define SYS_READ 0
+#define SYS_WRITE 1
+#define SYS_OPEN 2
+#define SYS_CLOSE 3
+#define SYS_STAT 4
+#define SYS_FSTAT 5
+#define SYS_LSTAT 6
+#define SYS_POLL 7
+#define SYS_LSEEK 8
+#define SYS_MMAP 9
+#define SYS_MPROTECT 10
+#define SYS_MUNMAP 11
+#define SYS_BRK 12
+
+#define SYS_RT_SIGPROCMASK 14
+
+#define SYS_IOCTL 16
+
+#define SYS_READV 19
+#define SYS_WRITEV 20
+
+#define SYS_PIPE 22
+
+#define SYS_MREMAP 25
+#define SYS_MSYNC 26
+
+#define SYS_DUP 32
+#define SYS_DUP2 33
+#define SYS_PAUSE 34
+#define SYS_NANOSLEEP 35
+
+#define SYS_ALARM 37
+
+#define SYS_GETPID 39
+
+#define SYS_SOCKET 41
+#define SYS_CONNECT 42
+#define SYS_ACCEPT 43
+
+#define SYS_SHUTDOWN 48
+
+#define SYS_BIND 49
+#define SYS_LISTEN 50
+
+#define SYS_FORK 57
+#define SYS_VFORK 58
+#define SYS_EXECVE 59
+#define SYS_EXIT 60
+#define SYS_WAIT4 61
+#define SYS_KILL 62
+#define SYS_UNAME 63
+#define SYS_FCNTL 72
+
+#define SYS_GETDENTS 78
+#define SYS_GETCWD 79
+#define SYS_CHDIR 80
+#define SYS_FCHDIR 81
+
+#define SYS_MKDIR 83
+#define SYS_RMDIR 84
+#define SYS_CREAT 85
+#define SYS_LINK 86
+#define SYS_UNLINK 87
+#define SYS_SYMLINK 88
+#define SYS_READLINK 89
+#define SYS_CHMOD 90
+#define SYS_FCHMOD 91
+
+#define SYS_MKNOD 133
+
+#define SYS_ARCH_PRCTL 158
+
+#define ARCH_SET_FS 0x1002
+#define ARCH_GET_FS 0x1003
+#define ARCH_SET_GS 0x1004
+#define ARCH_GET_GS 0x1005
+
+#define SYS_GETTID 186
+
+#define SYS_SET_TID_ADDRESS 218
+
+#define SYS_CLOCK_GETTIME 228
+
+#define SYS_EXIT_GROUP 231
+
+#define SYS_SET_ROBUST_LIST 273
+
+#define SYS_RSEQ 334
+
+
+
+// XJ380API XAPI Edition
+#define XAPI_OFFEST 7380
+
+// P3.1
+#define XAPI_OUTPUT    7381
+#define XAPI_INPUT     7382
+
+#define XAPI_GETLINE   7418
+
+#define XAPI_GETCH          7383
+#define XAPI_ENDLINE        7384
+#define XAPI_PRINTLINE      7385
+#define XAPI_PRINTF         7386
+#define XAPI_OUTPUT_SERIAL  7427
+
+// P3.2
+#define XAPI_OPEN_FILE      7387
+#define XAPI_CLOSE_FILE     7388
+
+#define XAPI_SEARCH_FILE    7416
+
+#define XAPI_MAKEDIR        7425
+#define XAPI_CREATE_FILE    7420
+#define XAPI_DELETE_FILE    7421  
+#define XAPI_RENAME_FILE    7422
+#define XAPI_READ_FILE      7423
+#define XAPI_WRITE_FILE     7424
+
+#define XAPI_REMOVEDIR      7444
+
+// P3.4
+#define XAPI_FORK   7389
+#define XAPI_EXECVE 7390
+#define XAPI_GET_TASK_LIST  7448
+#define XAPI_KILL_PROCESS   7449
+
+// P3.5
+#define XAPI_GET_VERSION        7391
+
+#define XAPI_GET_TIME           7412
+#define XAPI_GET_CURRENT_USER   7413
+
+#define XAPI_GET_TIME_X         7433
+#define XAPI_GET_CPU_MODEL      7434
+#define XAPI_GET_MEMORY_SIZE    7435
+
+// P3.6
+#define XAPI_BROKEN         7428
+#define XAPI_SEND_APP_MSG   7429
+#define XAPI_SLEEP          7430
+
+#define XAPI_RUN            7439
+
+#define XAPI_FLUSH_TIME     7445
+
+// P3.7
+#define XAPI_MALLOC         7441
+#define XAPI_FREE           7442
+#define XAPI_MAP_MEMORY     7443
+
+// P4.1
+#define XAPI_CREATE_WINDOW    7392
+#define XAPI_SET_WINDOW_TITLE 7393
+#define XAPI_CLOSE_WINDOW     7394
+#define XAPI_SET_ICON         7395
+
+#define XAPI_GET_WIN_SZIE     7426
+
+// P4.2
+#define XAPI_DRAW_POINT       7396
+#define XAPI_DRAW_LINE        7397
+#define XAPI_DRAW_RECT        7398
+#define XAPI_DRAW_RECT_FILL   7399
+#define XAPI_DRAW_CIRCLE      7400
+#define XAPI_DRAW_CIRCLE_FILL 7401
+#define XAPI_DRAW_TEXT        7402
+
+#define XAPI_DRAW_TEXT_L      7414
+#define XAPI_DRAW_TEXT_SW     7415
+#define XAPI_CALC_TEXT_WIDTH  7431
+
+// P4.3
+#define XAPI_DRAW_BMP       7403
+#define XAPI_DRAW_PNG       7404
+
+#define XAPI_DRAW_PICTURE   7419
+
+#define XAPI_GET_PIC_SIZE   7440
+#define XAPI_DRAW_SVG       7446
+#define XAPI_DRAW_FA        7447
+
+#define XAPI_TASK_NAME_LEN 32
+
+typedef struct
+{
+    UINT64 pid;
+    UINT64 ppid;
+    UINT64 tid;
+    UINT64 cpu_id;
+    UINT64 task_level;
+    UINT64 thread_count;
+    UINT64 window_count;
+    UINT64 memory_bytes;
+    UINT32 process_status;
+    UINT32 thread_status;
+    char   process_name[XAPI_TASK_NAME_LEN];
+    char   thread_name[XAPI_TASK_NAME_LEN];
+} XapiTaskInfo;
+
+// P4.4
+#define XAPI_SET_MSH_PROCOR 7405
+
+#define MSG_CHAR    0
+#define MSG_MOVE    1
+#define MSG_LBUTTON 2
+#define MSG_RBUTTON 3
+#define MSG_MBUTTON 4
+#define MSG_ROLLER  5
+#define MSG_CRL     6
+#define MSG_SPCHAR  7
+
+// P4.5
+#define XAPI_READBUFFER     7406
+#define XAPI_WRITEBUFFER    7407
+#define XAPI_READBUFFERA    7417
+
+#define XAPI_WRITEBUFFERA   7408
+#define XAPI_REFRESH_WINDOW 7409
+
+#define XAPI_REFRESH_PART_WINDOW 7438
+
+// P4.6
+#define XAPI_BUTTON         7410
+#define XAPI_BUTTON_EMP     7411
+#define XAPI_DELETE_BUTTON  7432
+
+#define XAPI_REG_RB_MENU    7436
+#define XAPI_URG_RB_MENU    7437
+
+uint64_t enter_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
