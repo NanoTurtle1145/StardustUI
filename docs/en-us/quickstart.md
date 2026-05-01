@@ -1,4 +1,4 @@
-# How to Install
+# Quick Start
 ## First
 Clone rhe repository
 ```bash
