@@ -5,8 +5,12 @@ class Lable : public base_component
 {
 public:
     Lable(const stardustui::string& text, unsigned int size, unsigned int color);
+    Lable(const stardustui::string& text, unsigned int size, const SytelRules& style);
     ~Lable() override;
     void draw(unsigned long long handle) override;
+    bool contains(int x, int y) const override;
+    void set_text(const stardustui::string& text);  
+    const stardustui::string& get_text() const;
 private:
     stardustui::string text;
     unsigned int size;

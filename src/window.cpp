@@ -1,14 +1,28 @@
 #include "../includes/window.hpp"
 
+namespace {
+Window* g_active_window = nullptr;
+
+void dispatch_window_message(unsigned long long type, unsigned long long h_data, unsigned long long l_data) {
+	if (g_active_window != nullptr) {
+		g_active_window->handle_message(type, h_data, l_data);
+	}
+}
+}
+
 Window::Window(const char* title, int width, int height) {
 	this->title.assign(title);
 	this->width = width;
 	this->height = height;
 	this->handle = 0;
+	this->needs_redraw = true;
 }
 
 Window::~Window() {
 	append_debug_log("stardustui: Window destructor\n");
+	if (g_active_window == this) {
+		g_active_window = nullptr;
+	}
 	if (this->handle != 0) {
 		append_debug_log("stardustui: destructor closing handle\n");
 		delete_window(this->handle);
@@ -25,13 +39,23 @@ void Window::show() {
 	}
 
 	append_debug_log("stardustui: create_window ok\n");
+	g_active_window = this;
+	set_window_message_processor(this->handle, dispatch_window_message);
+	draw_components();
 	refresh_window(this->handle);
 	append_debug_log("stardustui: refresh_window ok\n");
-	for (int i = 0; i < components.size(); ++i) {
-		components[i]->draw(this->handle);
-	}
 	append_debug_log("stardustui: wait_window enter\n");
-	wait_window();
+	while (true) {
+		for (int i = 0; i < components.size(); ++i) {
+			components[i]->update();
+		}
+		if (this->needs_redraw) {
+			draw_components();
+			refresh_window(this->handle);
+			this->needs_redraw = false;
+		}
+		sleep_ms(16);
+	}
 }
 
 void Window::hide() {
@@ -39,6 +63,9 @@ void Window::hide() {
 		append_debug_log("stardustui: Window::hide closing handle\n");
 		delete_window(this->handle);
 		this->handle = 0;
+	}
+	if (g_active_window == this) {
+		g_active_window = nullptr;
 	}
 }
 
@@ -58,6 +85,31 @@ void Window::error(const char* msg) {
 	print_error(msg);
 }
 
+void Window::handle_message(unsigned long long type, unsigned long long h_data, unsigned long long l_data) {
+	if (type != kWindowMessageMove) {
+		return;
+	}
+
+	bool changed = false;
+	for (int i = 0; i < this->components.size(); ++i) {
+		base_component* component = this->components[i];
+		if (component == nullptr) {
+			continue;
+		}
+
+		const bool hovered = component->contains(static_cast<int>(h_data), static_cast<int>(l_data));
+		if (component->is_hover_active() != hovered) {
+			component->set_hover_state(hovered);
+			component->set_mouse_state(hovered);
+			changed = true;
+		}
+	}
+
+	if (changed) {
+		this->needs_redraw = true;
+	}
+}
+
 void Window::addComponent(base_component& component) {
 	addComponent(&component);
 }
@@ -70,5 +122,15 @@ void Window::addComponent(base_component* component) {
 	if (!this->components.push_back(component)) {
 		error("Failed to grow component storage");
 		return;
+	}
+
+	this->needs_redraw = true;
+}
+
+void Window::draw_components() {
+	for (int i = 0; i < this->components.size(); ++i) {
+		if (this->components[i] != nullptr) {
+			this->components[i]->draw(this->handle);
+		}
 	}
 }
