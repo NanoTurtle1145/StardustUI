@@ -9,6 +9,8 @@
 
 ## supported platforms💻
 - XJ380
+- Windows
+- Linux
 
 ## Examples 🎉
 
@@ -26,6 +28,4 @@
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xingji-studio/StardustUI&type=timeline&logscale&legend=top-left" />
  </picture>
 </a>
-
-
 

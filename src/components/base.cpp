@@ -1,5 +1,5 @@
 #include "../../includes/components/base.hpp"
-base_component::base_component() = default;
+base_component::base_component() : x(0), y(0) {}
 base_component::~base_component() = default;
 void base_component::draw(unsigned long long) {}
 void base_component::update() {
