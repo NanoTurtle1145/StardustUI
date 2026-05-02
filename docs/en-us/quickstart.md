@@ -109,3 +109,4 @@ make PLATFORM=xj380
 - The current component class name is `Lable`, not `Label`.
 - The current style header is `sytle.hpp`, not `style.hpp`.
 - `window.addComponent(...)` accepts both a reference and a pointer overload.
+- For layout and custom drawing, see [Layout System](./layout.md) and [Canvas Component](./canvas.md).

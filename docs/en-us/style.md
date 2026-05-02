@@ -126,6 +126,8 @@ The style system is already wired into:
 
 - `base_component`
 - `Lable`
+- `Canvas`
+- `FlexLayout`
 
 `Lable::draw(...)` currently reads:
 
@@ -134,7 +136,11 @@ The style system is already wired into:
 
 `Lable::contains(...)` also uses the resolved text size for hover hit testing.
 
+`Canvas` and `FlexLayout` inherit the same base style and redraw mechanism, but they do not currently render borders, background color, radius, or padding automatically from `Sytel`. Those values remain available for higher-level components and future expansion.
+
 ## Related pages
 
 - [Create a Window](./create_window.md)
 - [Quick Start](./quickstart.md)
+- [Layout System](./layout.md)
+- [Canvas Component](./canvas.md)

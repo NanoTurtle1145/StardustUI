@@ -24,6 +24,13 @@
 - [快速开始](./quickstart.md)
 - [创建窗口](./create_window.md)
 - [样式系统](./style.md)
+- [布局系统](./layout.md)
+- [Canvas 控件](./canvas.md)
+
+## 示例
+
+- `examples/helloworld`
+- `examples/layout`
 
 ## Star 历史
 

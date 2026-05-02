@@ -54,6 +54,7 @@ void error(const char* msg);
 - `hide()` closes the current native window handle if it exists.
 - `getWidth()`, `getHeight()`, and `getTitle()` return the values passed to the constructor.
 - `error()` forwards an error message to the current platform backend.
+- During the main loop, `Window::show()` also calls `component->update()` on every component once per frame.
 
 ## Add components
 
@@ -89,8 +90,16 @@ window.addComponent(Lable("Text", 24, 0x000000FF)); // temporary object
 
 For components that implement `contains(int x, int y)`, hover style changes will be applied automatically when the mouse moves over that component.
 
+## Redraw behavior
+
+Components can request a redraw from inside `update()` or other state-changing methods.
+
+This is how dynamic components such as `Canvas` refresh every frame without the user manually forcing a window repaint.
+
 ## Related pages
 
 - [Quick Start](./quickstart.md)
 - [Style System](./style.md)
+- [Layout System](./layout.md)
+- [Canvas Component](./canvas.md)
 - [Documentation Index](./docs.md)

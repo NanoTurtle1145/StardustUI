@@ -8,6 +8,8 @@ This directory documents the current code in this repository.
 2. [Quick start](./quickstart.md)
 3. [Create a window](./create_window.md)
 4. [Style system](./style.md)
+5. [Layout system](./layout.md)
+6. [Canvas component](./canvas.md)
 
 ## Current platform targets
 

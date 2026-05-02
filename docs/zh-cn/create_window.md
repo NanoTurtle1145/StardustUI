@@ -54,6 +54,7 @@ void error(const char* msg);
 - `hide()` 会在句柄存在时关闭当前窗口。
 - `getWidth()`、`getHeight()`、`getTitle()` 返回构造时传入的值。
 - `error()` 会把错误信息交给当前平台后端输出。
+- 在主循环期间，`Window::show()` 还会每帧调用一次各个控件的 `update()`。
 
 ## 添加控件
 
@@ -89,8 +90,16 @@ window.addComponent(Lable("Text", 24, 0x000000FF)); // 临时对象
 
 只要控件实现了 `contains(int x, int y)`，鼠标移动到控件范围内时，对应的 hover 样式就会自动生效。
 
+## 重绘机制
+
+控件可以在 `update()` 或其他状态变化方法里主动请求重绘。
+
+这也是 `Canvas` 能在每次主循环中持续刷新的基础机制，开发者不需要手动反复调用窗口刷新。
+
 ## 相关文档
 
 - [快速开始](./quickstart.md)
 - [样式系统](./style.md)
+- [布局系统](./layout.md)
+- [Canvas 控件](./canvas.md)
 - [文档目录](./docs.md)

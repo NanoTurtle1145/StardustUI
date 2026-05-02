@@ -62,7 +62,12 @@ make PLATFORM=xj380
 
 ## 构建示例
 
-示例位于 `examples/helloworld`。
+当前示例包括：
+
+- `examples/helloworld`
+- `examples/layout`
+
+### `helloworld`
 
 Linux：
 
@@ -86,8 +91,34 @@ cd examples/helloworld
 make PLATFORM=xj380
 ```
 
+### `layout`
+
+Linux：
+
+```bash
+cd examples/layout
+make PLATFORM=linux
+./build/linux/layout
+```
+
+Windows：
+
+```bash
+cd examples/layout
+make PLATFORM=windows CXX=x86_64-w64-mingw32-g++
+```
+
+XJ380：
+
+```bash
+cd examples/layout
+make PLATFORM=xj380
+```
+
 ## 相关文档
 
 - [快速开始](./quickstart.md)
 - [创建窗口](./create_window.md)
 - [样式系统](./style.md)
+- [布局系统](./layout.md)
+- [Canvas 控件](./canvas.md)

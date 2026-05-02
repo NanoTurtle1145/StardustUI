@@ -126,6 +126,8 @@ resolved_size = style.get_size(constructor_size);
 
 - `base_component`
 - `Lable`
+- `Canvas`
+- `FlexLayout`
 
 `Lable::draw(...)` 当前会读取：
 
@@ -134,7 +136,11 @@ resolved_size = style.get_size(constructor_size);
 
 `Lable::contains(...)` 也会使用解析后的文字大小来计算 hover 命中区域。
 
+`Canvas` 和 `FlexLayout` 同样继承了这一套基础样式与重绘机制，但它们目前还不会自动把 `Sytel` 里的边框、背景色、圆角、内边距直接绘制出来。这部分更适合作为后续扩展继续完善。
+
 ## 相关文档
 
 - [创建窗口](./create_window.md)
 - [快速开始](./quickstart.md)
+- [布局系统](./layout.md)
+- [Canvas 控件](./canvas.md)
