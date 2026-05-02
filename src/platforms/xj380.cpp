@@ -94,6 +94,11 @@ void refresh_window(unsigned long long handle)
     xapi_RefreshWindow(handle);
 }
 
+void set_window_message_processor(unsigned long long handle, window_message_proc proc)
+{
+    SetMsgPrcor(handle, proc);
+}
+
 void wait_window()
 {
     while (true) {
@@ -115,4 +120,14 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)
 {
     xapi_DrawText(handle, x, y, (char*)text.c_str(), size, color);
+}
+
+unsigned int calc_text_width(const stardustui::string& text, unsigned int size)
+{
+    return static_cast<unsigned int>(xapi_CalcTextWidth((char*)text.c_str(), size));
+}
+
+void sleep_ms(unsigned long long ms)
+{
+    xapi_Sleep(ms);
 }

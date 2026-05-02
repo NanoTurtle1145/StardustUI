@@ -25,12 +25,15 @@ class Window {
 	int getHeight();
 	const char* getTitle();
 	void error(const char*);
+	void handle_message(unsigned long long type, unsigned long long h_data, unsigned long long l_data);
 	void addComponent(base_component& component);
 	void addComponent(base_component* component);
 private:
+	void draw_components();
 	stardustui::string title;
 	int width;
 	int height;
 	unsigned long long handle;
+	bool needs_redraw;
 	stardustui::vector<base_component*> components; 
 };

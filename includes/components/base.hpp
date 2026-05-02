@@ -9,6 +9,7 @@
 #ifdef STARDUSTUI_LINUX
 #include "../../platforms/linux.hpp"
 #endif
+#include "../sytle.hpp"
 class base_component
 {
 public:
@@ -21,6 +22,17 @@ public:
     virtual void draw(unsigned long long handle);
     virtual void update();
     virtual void callback(void (*func)());
+    void set_style_rules(const SytelRules& rules);
+    const SytelRules& get_style_rules() const;
+    void clear_style_rules();
+    void set_mouse_state(bool active);
+    void set_click_state(bool active);
+    void set_hover_state(bool active);
+    bool is_mouse_active() const;
+    bool is_click_active() const;
+    bool is_hover_active() const;
+    Sytel resolve_style() const;
+    virtual bool contains(int x, int y) const;
     void set_pos(int x,int y){
         this->x=x;
         this->y=y;
@@ -31,5 +43,9 @@ public:
     }
 protected:
     void (*callback_func)() = nullptr;   
+    SytelRules style_rules;
+    bool mouse_active;
+    bool click_active;
+    bool hover_active;
     unsigned int x,y;
 };
