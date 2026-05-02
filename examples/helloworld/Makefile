@@ -13,6 +13,7 @@ ROOT_DIR := ../../../..
 
 SRC_FILES := \
 	helloworld.cpp \
+	$(FRAMEWORK_DIR)/src/file.cpp \
 	$(FRAMEWORK_DIR)/src/window.cpp \
 	$(FRAMEWORK_DIR)/src/components/base.cpp \
 	$(FRAMEWORK_DIR)/src/components/lable.cpp \
@@ -22,6 +23,7 @@ SRC_FILES := \
 
 OBJ_FILES := \
 	$(OBJ_DIR)/helloworld.o \
+	$(OBJ_DIR)/framework/file.o \
 	$(OBJ_DIR)/framework/window.o \
 	$(OBJ_DIR)/framework/components/base.o \
 	$(OBJ_DIR)/framework/components/lable.o \
@@ -33,6 +35,7 @@ FRAMEWORK_HEADERS := \
 	$(FRAMEWORK_DIR)/settings.hpp \
 	$(FRAMEWORK_DIR)/includes/string.hpp \
 	$(FRAMEWORK_DIR)/includes/vector.hpp \
+	$(FRAMEWORK_DIR)/includes/file.hpp \
 	$(FRAMEWORK_DIR)/includes/window.hpp \
 	$(FRAMEWORK_DIR)/includes/components/base.hpp \
 	$(FRAMEWORK_DIR)/includes/components/lable.hpp \
@@ -122,6 +125,11 @@ $(OBJ_DIR)/helloworld.o: helloworld.cpp $(FRAMEWORK_HEADERS)
 	@echo "CPP $< -> $@"
 
 $(OBJ_DIR)/framework/window.o: $(FRAMEWORK_DIR)/src/window.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/file.o: $(FRAMEWORK_DIR)/src/file.cpp $(FRAMEWORK_HEADERS)
 	@$(call make-dir,$(dir $@))
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	@echo "CPP $< -> $@"

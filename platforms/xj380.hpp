@@ -36,3 +36,4 @@ void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsi
 unsigned int calc_text_width(const stardustui::string& text, unsigned int size);
 
 void sleep_ms(unsigned long long ms);
+

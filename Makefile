@@ -7,6 +7,7 @@ OBJ_DIR := $(BUILD_DIR)/obj
 TARGET := $(BUILD_DIR)/libStardustUI.a 
 
 SRC_FILES := \
+	src/file.cpp \
 	src/window.cpp \
 	src/components/base.cpp \
 	src/components/lable.cpp \
