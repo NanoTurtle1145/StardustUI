@@ -4,6 +4,7 @@
 using window_message_proc = void (*)(unsigned long long type, unsigned long long h_data, unsigned long long l_data);
 
 constexpr unsigned long long kWindowMessageMove = 1;
+
 bool create_window(char *title, int width, int height, unsigned long long *handle);
 
 void print_error(const char *message);

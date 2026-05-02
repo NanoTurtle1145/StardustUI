@@ -106,6 +106,15 @@ void wait_window()
     }
 }
 
+void pump_window_events()
+{
+}
+
+bool is_window_open(unsigned long long handle)
+{
+    return handle != 0;
+}
+
 bool delete_window(unsigned long long handle)
 {
     if (handle == 0) return false;
@@ -117,7 +126,7 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
 {
     xapi_DrawPoint(handle, x, y, color);
 }
-void draw_text(unsigned long long handle, int x, int y, unsigned int color, UINT32 size, const stardustui::string& text)
+void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)
 {
     xapi_DrawText(handle, x, y, (char*)text.c_str(), size, color);
 }
