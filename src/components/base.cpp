@@ -4,6 +4,7 @@ base_component::base_component()
       click_active(false),
       hover_active(false),
       redraw_requested(false),
+      click_feedback_frames(0),
       x(0),
       y(0),
       width(0),
@@ -13,8 +14,12 @@ base_component::~base_component() = default;
 void base_component::draw(unsigned long long) {}
 
 void base_component::update() {
-    if(this->callback_func){
-        this->callback_func();
+    if (this->click_feedback_frames > 0) {
+        --this->click_feedback_frames;
+        if (this->click_feedback_frames == 0 && this->click_active) {
+            this->set_click_state(false);
+            this->request_redraw();
+        }
     }
 }
 
@@ -84,6 +89,38 @@ void base_component::set_bounds(int x, int y, int width, int height) {
     this->height = static_cast<unsigned int>(height < 0 ? 0 : height);
 }
 
+bool base_component::handle_pointer_move(int x, int y) {
+    const bool hovered = this->contains(x, y);
+    const bool changed = this->hover_active != hovered || this->mouse_active != hovered;
+    this->set_hover_state(hovered);
+    this->set_mouse_state(hovered);
+    return changed;
+}
+
+bool base_component::handle_left_button(bool pressed, int x, int y) {
+    const bool inside = this->contains(x, y);
+    if (pressed) {
+        this->click_feedback_frames = 0;
+        const bool changed = this->click_active != inside;
+        this->set_click_state(inside);
+        if (inside) {
+            this->set_mouse_state(true);
+            this->set_hover_state(true);
+        }
+        return changed;
+    }
+
+    const bool was_active = this->click_active;
+    if (was_active && inside) {
+        this->run_callback();
+        this->click_feedback_frames = 1;
+        this->request_redraw();
+        return true;
+    }
+    this->set_click_state(false);
+    return was_active;
+}
+
 int base_component::get_width() const {
     return static_cast<int>(this->width);
 }
@@ -104,4 +141,10 @@ bool base_component::consume_redraw_request() {
 
 bool base_component::has_pending_redraw() const {
     return this->redraw_requested;
+}
+
+void base_component::run_callback() {
+    if (this->callback_func != nullptr) {
+        this->callback_func();
+    }
 }

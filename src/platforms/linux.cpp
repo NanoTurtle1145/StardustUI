@@ -334,6 +334,17 @@ void dispatch_mouse_move(WindowState *state, const SDL_MouseMotionEvent& motion)
                         static_cast<unsigned long long>(motion.y));
 }
 
+void dispatch_mouse_button(WindowState *state, bool pressed, const SDL_MouseButtonEvent& button)
+{
+    if (state == nullptr || state->message_proc == nullptr || button.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    state->message_proc(pressed ? kWindowMessageLeftButtonDown : kWindowMessageLeftButtonUp,
+                        static_cast<unsigned long long>(button.x),
+                        static_cast<unsigned long long>(button.y));
+}
+
 void apply_window_outer_size(WindowState *state, int outer_width, int outer_height)
 {
     if (state == nullptr || state->window == nullptr) {
@@ -460,6 +471,8 @@ void pump_window_events()
         Uint32 window_id = 0;
         if (event.type == SDL_MOUSEMOTION) {
             window_id = event.motion.windowID;
+        } else if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
+            window_id = event.button.windowID;
         } else if (event.type == SDL_WINDOWEVENT) {
             window_id = event.window.windowID;
         }
@@ -471,6 +484,10 @@ void pump_window_events()
 
         if (event.type == SDL_MOUSEMOTION) {
             dispatch_mouse_move(state, event.motion);
+        } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+            dispatch_mouse_button(state, true, event.button);
+        } else if (event.type == SDL_MOUSEBUTTONUP) {
+            dispatch_mouse_button(state, false, event.button);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED) {
             redraw(state);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {

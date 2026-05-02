@@ -286,6 +286,28 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         }
         return 0;
     }
+    case WM_LBUTTONDOWN: {
+        WindowState *state = find_state(hwnd);
+        if (state != nullptr && state->message_proc != nullptr) {
+            SetCapture(hwnd);
+            state->message_proc(
+                kWindowMessageLeftButtonDown,
+                static_cast<unsigned long long>(GET_X_LPARAM(lparam)),
+                static_cast<unsigned long long>(GET_Y_LPARAM(lparam)));
+        }
+        return 0;
+    }
+    case WM_LBUTTONUP: {
+        WindowState *state = find_state(hwnd);
+        if (state != nullptr && state->message_proc != nullptr) {
+            ReleaseCapture();
+            state->message_proc(
+                kWindowMessageLeftButtonUp,
+                static_cast<unsigned long long>(GET_X_LPARAM(lparam)),
+                static_cast<unsigned long long>(GET_Y_LPARAM(lparam)));
+        }
+        return 0;
+    }
     case WM_DESTROY:
         remove_state(hwnd);
         PostQuitMessage(0);

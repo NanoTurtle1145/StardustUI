@@ -36,6 +36,7 @@ void Canvas::draw(unsigned long long handle) {
 }
 
 void Canvas::update() {
+    base_component::update();
     if (this->refresh_callback == nullptr) {
         return;
     }

@@ -36,11 +36,14 @@ public:
     virtual int get_preferred_height() const;
     virtual bool contains(int x, int y) const;
     virtual void set_bounds(int x, int y, int width, int height);
+    virtual bool handle_pointer_move(int x, int y);
+    virtual bool handle_left_button(bool pressed, int x, int y);
     int get_width() const;
     int get_height() const;
     void request_redraw();
     bool consume_redraw_request();
     bool has_pending_redraw() const;
+    void run_callback();
     void set_pos(int x,int y){
         this->x=x;
         this->y=y;
@@ -56,6 +59,7 @@ protected:
     bool click_active;
     bool hover_active;
     bool redraw_requested;
+    int click_feedback_frames;
     unsigned int x,y;
     unsigned int width,height;
 };

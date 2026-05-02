@@ -15,13 +15,15 @@ SRC_FILES := \
 	helloworld.cpp \
 	$(FRAMEWORK_DIR)/src/window.cpp \
 	$(FRAMEWORK_DIR)/src/components/base.cpp \
-	$(FRAMEWORK_DIR)/src/components/lable.cpp
+	$(FRAMEWORK_DIR)/src/components/lable.cpp \
+	$(FRAMEWORK_DIR)/src/components/button.cpp
 
 OBJ_FILES := \
 	$(OBJ_DIR)/helloworld.o \
 	$(OBJ_DIR)/framework/window.o \
 	$(OBJ_DIR)/framework/components/base.o \
-	$(OBJ_DIR)/framework/components/lable.o
+	$(OBJ_DIR)/framework/components/lable.o \
+	$(OBJ_DIR)/framework/components/button.o
 
 FRAMEWORK_HEADERS := \
 	$(FRAMEWORK_DIR)/settings.hpp \
@@ -30,6 +32,7 @@ FRAMEWORK_HEADERS := \
 	$(FRAMEWORK_DIR)/includes/window.hpp \
 	$(FRAMEWORK_DIR)/includes/components/base.hpp \
 	$(FRAMEWORK_DIR)/includes/components/lable.hpp \
+	$(FRAMEWORK_DIR)/includes/components/button.hpp \
 	$(FRAMEWORK_DIR)/platforms/linux.hpp \
 	$(FRAMEWORK_DIR)/platforms/windows.hpp \
 	$(FRAMEWORK_DIR)/platforms/xj380.hpp
@@ -138,6 +141,11 @@ $(OBJ_DIR)/framework/components/base.o: $(FRAMEWORK_DIR)/src/components/base.cpp
 	@echo "CPP $< -> $@"
 
 $(OBJ_DIR)/framework/components/lable.o: $(FRAMEWORK_DIR)/src/components/lable.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/components/button.o: $(FRAMEWORK_DIR)/src/components/button.cpp $(FRAMEWORK_HEADERS)
 	@$(call make-dir,$(dir $@))
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	@echo "CPP $< -> $@"

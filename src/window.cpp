@@ -58,7 +58,11 @@ void Window::show() {
 			refresh_window(this->handle);
 			this->needs_redraw = false;
 		}
+#ifdef XJ380
+		sleep_ms(1);
+#else
 		sleep_ms(16);
+#endif
 	}
 }
 
@@ -90,10 +94,6 @@ void Window::error(const char* msg) {
 }
 
 void Window::handle_message(unsigned long long type, unsigned long long h_data, unsigned long long l_data) {
-	if (type != kWindowMessageMove) {
-		return;
-	}
-
 	bool changed = false;
 	for (int i = 0; i < this->components.size(); ++i) {
 		base_component* component = this->components[i];
@@ -101,11 +101,25 @@ void Window::handle_message(unsigned long long type, unsigned long long h_data, 
 			continue;
 		}
 
-		const bool hovered = component->contains(static_cast<int>(h_data), static_cast<int>(l_data));
-		if (component->is_hover_active() != hovered) {
-			component->set_hover_state(hovered);
-			component->set_mouse_state(hovered);
-			changed = true;
+		if (type == kWindowMessageMove) {
+			if (component->handle_pointer_move(static_cast<int>(h_data), static_cast<int>(l_data))) {
+				changed = true;
+			}
+		} else if (type == kWindowMessageLeftButtonDown) {
+			if (component->handle_left_button(true, static_cast<int>(h_data), static_cast<int>(l_data))) {
+				changed = true;
+			}
+		} else if (type == kWindowMessageLeftButtonUp) {
+			if (component->handle_left_button(false, static_cast<int>(h_data), static_cast<int>(l_data))) {
+				changed = true;
+			}
+		} else if (type == kWindowMessageLeftButtonClick) {
+			if (component->handle_left_button(true, static_cast<int>(h_data), static_cast<int>(l_data))) {
+				changed = true;
+			}
+			if (component->handle_left_button(false, static_cast<int>(h_data), static_cast<int>(l_data))) {
+				changed = true;
+			}
 		}
 	}
 

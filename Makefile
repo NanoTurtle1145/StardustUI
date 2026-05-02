@@ -10,6 +10,7 @@ SRC_FILES := \
 	src/window.cpp \
 	src/components/base.cpp \
 	src/components/lable.cpp \
+	src/components/button.cpp \
 	src/components/canvas.cpp \
 	src/components/flex.cpp
 
