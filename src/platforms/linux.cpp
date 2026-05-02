@@ -11,17 +11,20 @@ namespace {
 struct DrawCommand {
     enum Type {
         Pixel,
+        Rect,
         Text
     };
 
     Type type;
     int x;
     int y;
+    int width;
+    int height;
     unsigned int color;
     unsigned int size;
     stardustui::string text;
 
-    DrawCommand() : type(Pixel), x(0), y(0), color(0), size(0), text() {}
+    DrawCommand() : type(Pixel), x(0), y(0), width(0), height(0), color(0), size(0), text() {}
 };
 
 struct FontEntry {
@@ -260,6 +263,17 @@ void draw_command(WindowState *state, const DrawCommand& command)
     if (command.type == DrawCommand::Pixel) {
         SDL_SetRenderDrawColor(state->renderer, color.r, color.g, color.b, color.a);
         SDL_RenderDrawPoint(state->renderer, command.x, command.y);
+        return;
+    }
+
+    if (command.type == DrawCommand::Rect) {
+        SDL_SetRenderDrawColor(state->renderer, color.r, color.g, color.b, color.a);
+        SDL_Rect rect{};
+        rect.x = command.x;
+        rect.y = command.y;
+        rect.w = command.width;
+        rect.h = command.height;
+        SDL_RenderFillRect(state->renderer, &rect);
         return;
     }
 
@@ -505,6 +519,31 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
     command.y = y;
     command.color = color;
     state->commands.push_back(command);
+}
+
+void draw_rect(unsigned long long handle, int x, int y, int width, int height, unsigned int color)
+{
+    WindowState *state = to_state(handle);
+    if (state == nullptr || width <= 0 || height <= 0) {
+        return;
+    }
+
+    DrawCommand command;
+    command.type = DrawCommand::Rect;
+    command.x = x;
+    command.y = y;
+    command.width = width;
+    command.height = height;
+    command.color = color;
+    state->commands.push_back(command);
+}
+
+void clear_draw_commands(unsigned long long handle)
+{
+    WindowState *state = to_state(handle);
+    if (state != nullptr) {
+        state->commands.clear();
+    }
 }
 
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)

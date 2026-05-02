@@ -9,6 +9,8 @@ public:
     ~Lable() override;
     void draw(unsigned long long handle) override;
     bool contains(int x, int y) const override;
+    int get_preferred_width() const override;
+    int get_preferred_height() const override;
     void set_text(const stardustui::string& text);  
     const stardustui::string& get_text() const;
 private:

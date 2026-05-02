@@ -49,6 +49,9 @@ void Window::show() {
 		pump_window_events();
 		for (int i = 0; i < components.size(); ++i) {
 			components[i]->update();
+			if (components[i]->consume_redraw_request()) {
+				this->needs_redraw = true;
+			}
 		}
 		if (this->needs_redraw) {
 			draw_components();
@@ -129,6 +132,8 @@ void Window::addComponent(base_component* component) {
 }
 
 void Window::draw_components() {
+	clear_draw_commands(this->handle);
+	draw_rect(this->handle, 0, 0, this->width, this->height, 0xFFFFFFFF);
 	for (int i = 0; i < this->components.size(); ++i) {
 		if (this->components[i] != nullptr) {
 			this->components[i]->draw(this->handle);

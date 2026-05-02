@@ -31,8 +31,20 @@ bool Lable::contains(int x, int y) const {
            y < static_cast<int>(this->y + height);
 }
 
+int Lable::get_preferred_width() const {
+    const Sytel style = this->resolve_style();
+    const unsigned int resolved_size = style.get_size(this->size);
+    return static_cast<int>(calc_text_width(this->text, resolved_size));
+}
+
+int Lable::get_preferred_height() const {
+    const Sytel style = this->resolve_style();
+    return static_cast<int>(style.get_size(this->size));
+}
+
 void Lable::set_text(const stardustui::string& text) {
     this->text = text;
+    this->request_redraw();
 }
 
 const stardustui::string& Lable::get_text() const {

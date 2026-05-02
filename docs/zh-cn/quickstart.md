@@ -109,3 +109,4 @@ make PLATFORM=xj380
 - 当前文字控件类名是 `Lable`，不是 `Label`。
 - 当前样式头文件名是 `sytle.hpp`，不是 `style.hpp`。
 - `window.addComponent(...)` 现在同时支持引用和指针重载。
+- 如果要做布局和自定义绘制，请看 [布局系统](./layout.md) 和 [Canvas 控件](./canvas.md)。

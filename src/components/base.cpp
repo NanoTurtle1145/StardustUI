@@ -3,8 +3,11 @@ base_component::base_component()
     : mouse_active(false),
       click_active(false),
       hover_active(false),
+      redraw_requested(false),
       x(0),
-      y(0) {}
+      y(0),
+      width(0),
+      height(0) {}
 
 base_component::~base_component() = default;
 void base_component::draw(unsigned long long) {}
@@ -59,6 +62,46 @@ Sytel base_component::resolve_style() const {
     return this->style_rules.resolve(this->mouse_active, this->click_active, this->hover_active);
 }
 
-bool base_component::contains(int, int) const {
-    return false;
+int base_component::get_preferred_width() const {
+    return static_cast<int>(this->width);
+}
+
+int base_component::get_preferred_height() const {
+    return static_cast<int>(this->height);
+}
+
+bool base_component::contains(int x, int y) const {
+    return x >= static_cast<int>(this->x) &&
+           y >= static_cast<int>(this->y) &&
+           x < static_cast<int>(this->x + this->width) &&
+           y < static_cast<int>(this->y + this->height);
+}
+
+void base_component::set_bounds(int x, int y, int width, int height) {
+    this->x = static_cast<unsigned int>(x < 0 ? 0 : x);
+    this->y = static_cast<unsigned int>(y < 0 ? 0 : y);
+    this->width = static_cast<unsigned int>(width < 0 ? 0 : width);
+    this->height = static_cast<unsigned int>(height < 0 ? 0 : height);
+}
+
+int base_component::get_width() const {
+    return static_cast<int>(this->width);
+}
+
+int base_component::get_height() const {
+    return static_cast<int>(this->height);
+}
+
+void base_component::request_redraw() {
+    this->redraw_requested = true;
+}
+
+bool base_component::consume_redraw_request() {
+    const bool requested = this->redraw_requested;
+    this->redraw_requested = false;
+    return requested;
+}
+
+bool base_component::has_pending_redraw() const {
+    return this->redraw_requested;
 }

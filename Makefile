@@ -9,7 +9,9 @@ TARGET := $(BUILD_DIR)/libStardustUI.a
 SRC_FILES := \
 	src/window.cpp \
 	src/components/base.cpp \
-	src/components/lable.cpp
+	src/components/lable.cpp \
+	src/components/canvas.cpp \
+	src/components/flex.cpp
 
 ifeq ($(PLATFORM),windows)
 SRC_FILES += src/platforms/windows.cpp

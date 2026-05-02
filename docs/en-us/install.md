@@ -60,9 +60,14 @@ If you do not define a platform macro manually, `settings.hpp` currently uses:
 - `__linux__` -> `STARDUSTUI_LINUX`
 - otherwise -> `XJ380`
 
-## Build the example
+## Build the examples
 
-The example lives in `examples/helloworld`.
+Current examples:
+
+- `examples/helloworld`
+- `examples/layout`
+
+### `helloworld`
 
 Linux:
 
@@ -86,8 +91,34 @@ cd examples/helloworld
 make PLATFORM=xj380
 ```
 
+### `layout`
+
+Linux:
+
+```bash
+cd examples/layout
+make PLATFORM=linux
+./build/linux/layout
+```
+
+Windows:
+
+```bash
+cd examples/layout
+make PLATFORM=windows CXX=x86_64-w64-mingw32-g++
+```
+
+XJ380:
+
+```bash
+cd examples/layout
+make PLATFORM=xj380
+```
+
 ## Related pages
 
 - [Quick Start](./quickstart.md)
 - [Create a Window](./create_window.md)
 - [Style System](./style.md)
+- [Layout System](./layout.md)
+- [Canvas Component](./canvas.md)

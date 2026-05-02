@@ -8,6 +8,8 @@
 2. [快速开始](./quickstart.md)
 3. [创建窗口](./create_window.md)
 4. [样式系统](./style.md)
+5. [布局系统](./layout.md)
+6. [Canvas 控件](./canvas.md)
 
 ## 当前平台目标
 

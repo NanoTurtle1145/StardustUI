@@ -32,7 +32,15 @@ public:
     bool is_click_active() const;
     bool is_hover_active() const;
     Sytel resolve_style() const;
+    virtual int get_preferred_width() const;
+    virtual int get_preferred_height() const;
     virtual bool contains(int x, int y) const;
+    virtual void set_bounds(int x, int y, int width, int height);
+    int get_width() const;
+    int get_height() const;
+    void request_redraw();
+    bool consume_redraw_request();
+    bool has_pending_redraw() const;
     void set_pos(int x,int y){
         this->x=x;
         this->y=y;
@@ -47,5 +55,7 @@ protected:
     bool mouse_active;
     bool click_active;
     bool hover_active;
+    bool redraw_requested;
     unsigned int x,y;
+    unsigned int width,height;
 };

@@ -11,6 +11,7 @@ const wchar_t kWindowClassName[] = L"StardustUIWindow";
 
 enum DrawCommandType {
     DrawCommandPixel,
+    DrawCommandRect,
     DrawCommandText
 };
 
@@ -18,11 +19,13 @@ struct DrawCommand {
     DrawCommandType type;
     int x;
     int y;
+    int width;
+    int height;
     unsigned int color;
     unsigned int size;
     stardustui::string text;
 
-    DrawCommand() : type(DrawCommandPixel), x(0), y(0), color(0), size(0), text() {}
+    DrawCommand() : type(DrawCommandPixel), x(0), y(0), width(0), height(0), color(0), size(0), text() {}
 };
 
 struct WindowState {
@@ -120,6 +123,20 @@ void render_command(HDC device_context, const DrawCommand& command)
         return;
     }
 
+    if (command.type == DrawCommandRect) {
+        RECT rect{};
+        rect.left = command.x;
+        rect.top = command.y;
+        rect.right = command.x + command.width;
+        rect.bottom = command.y + command.height;
+        HBRUSH brush = CreateSolidBrush(to_colorref(command.color));
+        if (brush != nullptr) {
+            FillRect(device_context, &rect, brush);
+            DeleteObject(brush);
+        }
+        return;
+    }
+
     wchar_t wide_text[1024];
     to_wide(command.text.c_str(), wide_text, static_cast<int>(sizeof(wide_text) / sizeof(wide_text[0])));
 
@@ -156,6 +173,75 @@ void render_command(HDC device_context, const DrawCommand& command)
     }
 }
 
+void render_all_commands(HDC device_context, WindowState *state, const RECT *paint_rect)
+{
+    if (device_context == nullptr || state == nullptr) {
+        return;
+    }
+
+    RECT client_rect{};
+    GetClientRect(state->handle, &client_rect);
+
+    const int width = client_rect.right - client_rect.left;
+    const int height = client_rect.bottom - client_rect.top;
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    HDC memory_dc = CreateCompatibleDC(device_context);
+    if (memory_dc == nullptr) {
+        for (int index = 0; index < state->commands.size(); ++index) {
+            render_command(device_context, state->commands[index]);
+        }
+        return;
+    }
+
+    HBITMAP bitmap = CreateCompatibleBitmap(device_context, width, height);
+    if (bitmap == nullptr) {
+        DeleteDC(memory_dc);
+        for (int index = 0; index < state->commands.size(); ++index) {
+            render_command(device_context, state->commands[index]);
+        }
+        return;
+    }
+
+    HGDIOBJ old_bitmap = SelectObject(memory_dc, bitmap);
+    HBRUSH background = CreateSolidBrush(RGB(255, 255, 255));
+    if (background != nullptr) {
+        FillRect(memory_dc, &client_rect, background);
+        DeleteObject(background);
+    }
+
+    for (int index = 0; index < state->commands.size(); ++index) {
+        render_command(memory_dc, state->commands[index]);
+    }
+
+    RECT blit_rect = client_rect;
+    if (paint_rect != nullptr) {
+        blit_rect = *paint_rect;
+    }
+
+    const int blit_width = blit_rect.right - blit_rect.left;
+    const int blit_height = blit_rect.bottom - blit_rect.top;
+    if (blit_width > 0 && blit_height > 0) {
+        BitBlt(device_context,
+               blit_rect.left,
+               blit_rect.top,
+               blit_width,
+               blit_height,
+               memory_dc,
+               blit_rect.left,
+               blit_rect.top,
+               SRCCOPY);
+    }
+
+    if (old_bitmap != nullptr) {
+        SelectObject(memory_dc, old_bitmap);
+    }
+    DeleteObject(bitmap);
+    DeleteDC(memory_dc);
+}
+
 HFONT create_font(unsigned int size)
 {
     return CreateFontW(
@@ -183,13 +269,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         HDC device_context = BeginPaint(hwnd, &paint);
         WindowState *state = find_state(hwnd);
         if (state != nullptr) {
-            for (int index = 0; index < state->commands.size(); ++index) {
-                render_command(device_context, state->commands[index]);
-            }
+            render_all_commands(device_context, state, &paint.rcPaint);
         }
         EndPaint(hwnd, &paint);
         return 0;
     }
+    case WM_ERASEBKGND:
+        return 1;
     case WM_MOUSEMOVE: {
         WindowState *state = find_state(hwnd);
         if (state != nullptr && state->message_proc != nullptr) {
@@ -221,7 +307,7 @@ bool register_window_class()
     window_class.hInstance = get_instance();
     window_class.lpszClassName = kWindowClassName;
     window_class.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
-    window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    window_class.hbrBackground = nullptr;
 
     ATOM result = RegisterClassW(&window_class);
     registered = result != 0 || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
@@ -296,7 +382,7 @@ void refresh_window(unsigned long long handle)
 {
     HWND window = to_hwnd(handle);
     if (window != nullptr) {
-        InvalidateRect(window, nullptr, TRUE);
+        InvalidateRect(window, nullptr, FALSE);
         UpdateWindow(window);
     }
 }
@@ -363,25 +449,42 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
     if (state != nullptr) {
         state->commands.push_back(command);
     }
+}
 
-    HDC device_context = GetDC(window);
-    if (device_context == nullptr) {
+void draw_rect(unsigned long long handle, int x, int y, int width, int height, unsigned int color)
+{
+    HWND window = to_hwnd(handle);
+    if (window == nullptr || width <= 0 || height <= 0) {
         return;
     }
 
-    render_command(device_context, command);
-    ReleaseDC(window, device_context);
+    DrawCommand command;
+    command.type = DrawCommandRect;
+    command.x = x;
+    command.y = y;
+    command.width = width;
+    command.height = height;
+    command.color = color;
+
+    WindowState *state = find_state(window);
+    if (state != nullptr) {
+        state->commands.push_back(command);
+    }
+}
+
+void clear_draw_commands(unsigned long long handle)
+{
+    HWND window = to_hwnd(handle);
+    WindowState *state = find_state(window);
+    if (state != nullptr) {
+        state->commands.clear();
+    }
 }
 
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)
 {
     HWND window = to_hwnd(handle);
     if (window == nullptr) {
-        return;
-    }
-
-    HDC device_context = GetDC(window);
-    if (device_context == nullptr) {
         return;
     }
 
@@ -396,9 +499,6 @@ void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsi
     if (state != nullptr) {
         state->commands.push_back(command);
     }
-
-    render_command(device_context, command);
-    ReleaseDC(window, device_context);
 }
 
 unsigned int calc_text_width(const stardustui::string& text, unsigned int size)
