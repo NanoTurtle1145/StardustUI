@@ -11,6 +11,7 @@ const wchar_t kWindowClassName[] = L"StardustUIWindow";
 
 enum DrawCommandType {
     DrawCommandPixel,
+    DrawCommandRect,
     DrawCommandText
 };
 
@@ -18,11 +19,13 @@ struct DrawCommand {
     DrawCommandType type;
     int x;
     int y;
+    int width;
+    int height;
     unsigned int color;
     unsigned int size;
     stardustui::string text;
 
-    DrawCommand() : type(DrawCommandPixel), x(0), y(0), color(0), size(0), text() {}
+    DrawCommand() : type(DrawCommandPixel), x(0), y(0), width(0), height(0), color(0), size(0), text() {}
 };
 
 struct WindowState {
@@ -117,6 +120,20 @@ void render_command(HDC device_context, const DrawCommand& command)
 {
     if (command.type == DrawCommandPixel) {
         SetPixel(device_context, command.x, command.y, to_colorref(command.color));
+        return;
+    }
+
+    if (command.type == DrawCommandRect) {
+        RECT rect{};
+        rect.left = command.x;
+        rect.top = command.y;
+        rect.right = command.x + command.width;
+        rect.bottom = command.y + command.height;
+        HBRUSH brush = CreateSolidBrush(to_colorref(command.color));
+        if (brush != nullptr) {
+            FillRect(device_context, &rect, brush);
+            DeleteObject(brush);
+        }
         return;
     }
 
@@ -371,6 +388,44 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
 
     render_command(device_context, command);
     ReleaseDC(window, device_context);
+}
+
+void draw_rect(unsigned long long handle, int x, int y, int width, int height, unsigned int color)
+{
+    HWND window = to_hwnd(handle);
+    if (window == nullptr || width <= 0 || height <= 0) {
+        return;
+    }
+
+    DrawCommand command;
+    command.type = DrawCommandRect;
+    command.x = x;
+    command.y = y;
+    command.width = width;
+    command.height = height;
+    command.color = color;
+
+    WindowState *state = find_state(window);
+    if (state != nullptr) {
+        state->commands.push_back(command);
+    }
+
+    HDC device_context = GetDC(window);
+    if (device_context == nullptr) {
+        return;
+    }
+
+    render_command(device_context, command);
+    ReleaseDC(window, device_context);
+}
+
+void clear_draw_commands(unsigned long long handle)
+{
+    HWND window = to_hwnd(handle);
+    WindowState *state = find_state(window);
+    if (state != nullptr) {
+        state->commands.clear();
+    }
 }
 
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)

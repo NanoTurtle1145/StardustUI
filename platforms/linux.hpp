@@ -24,6 +24,8 @@ bool is_window_open(unsigned long long handle);
 bool delete_window(unsigned long long handle);
 
 void draw_pixel(unsigned long long handle, int x, int y, unsigned int color);
+void draw_rect(unsigned long long handle, int x, int y, int width, int height, unsigned int color);
+void clear_draw_commands(unsigned long long handle);
 
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text);
 

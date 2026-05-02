@@ -126,6 +126,24 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
 {
     xapi_DrawPoint(handle, x, y, color);
 }
+
+void draw_rect(unsigned long long handle, int x, int y, int width, int height, unsigned int color)
+{
+    if (width <= 0 || height <= 0) return;
+
+    xapi_DrawRect(handle,
+                  static_cast<UINT32>(x),
+                  static_cast<UINT32>(y),
+                  static_cast<UINT32>(x + width - 1),
+                  static_cast<UINT32>(y + height - 1),
+                  color,
+                  true);
+}
+
+void clear_draw_commands(unsigned long long)
+{
+}
+
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)
 {
     xapi_DrawText(handle, x, y, (char*)text.c_str(), size, color);
