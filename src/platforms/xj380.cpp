@@ -26,6 +26,16 @@ void dispatch_xj380_message(unsigned long long type, unsigned long long h_data, 
 
     if (type == MSG_LBUTTON) {
         g_window_message_proc(kWindowMessageLeftButtonClick, h_data, l_data);
+        return;
+    }
+
+    if (type == MSG_CHAR) {
+        g_window_message_proc(kWindowMessageChar, 0, l_data);
+        return;
+    }
+
+    if (type == MSG_SPCHAR) {
+        g_window_message_proc(kWindowMessageSpecialChar, 0, l_data);
     }
 }
 }

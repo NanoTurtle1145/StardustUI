@@ -12,6 +12,8 @@ SRC_FILES := \
 	src/components/lable.cpp \
 	src/components/button.cpp \
 	src/components/canvas.cpp \
+	src/components/scrollbar.cpp \
+	src/components/textbox.cpp \
 	src/components/flex.cpp
 
 ifeq ($(PLATFORM),windows)

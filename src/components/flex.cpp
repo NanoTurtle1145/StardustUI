@@ -101,6 +101,24 @@ bool FlexLayout::handle_left_button(bool pressed, int x, int y) {
     return changed;
 }
 
+bool FlexLayout::handle_char_input(char ch, bool special) {
+    this->perform_layout();
+
+    bool changed = false;
+    for (int index = 0; index < this->items.size(); ++index) {
+        base_component* component = this->items[index].component;
+        if (component == nullptr) {
+            continue;
+        }
+
+        if (component->handle_char_input(ch, special)) {
+            changed = true;
+        }
+    }
+
+    return changed;
+}
+
 void FlexLayout::set_direction(Direction direction) {
     this->direction = direction;
     this->layout_dirty = true;

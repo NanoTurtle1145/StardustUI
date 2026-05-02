@@ -308,6 +308,18 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         }
         return 0;
     }
+    case WM_CHAR: {
+        WindowState *state = find_state(hwnd);
+        if (state != nullptr && state->message_proc != nullptr) {
+            const char ch = static_cast<char>(wparam & 0xFF);
+            if (ch == '\b' || ch == '\r' || ch == '\n') {
+                state->message_proc(kWindowMessageSpecialChar, 0, static_cast<unsigned long long>(ch == '\r' ? '\n' : ch));
+            } else {
+                state->message_proc(kWindowMessageChar, 0, static_cast<unsigned long long>(ch));
+            }
+        }
+        return 0;
+    }
     case WM_DESTROY:
         remove_state(hwnd);
         PostQuitMessage(0);

@@ -16,6 +16,7 @@ Window::Window(const char* title, int width, int height) {
 	this->height = height;
 	this->handle = 0;
 	this->needs_redraw = true;
+	this->background_needs_clear = true;
 }
 
 Window::~Window() {
@@ -40,6 +41,7 @@ void Window::show() {
 
 	append_debug_log("stardustui: create_window ok\n");
 	g_active_window = this;
+	this->background_needs_clear = true;
 	set_window_message_processor(this->handle, dispatch_window_message);
 	draw_components();
 	refresh_window(this->handle);
@@ -58,11 +60,7 @@ void Window::show() {
 			refresh_window(this->handle);
 			this->needs_redraw = false;
 		}
-#ifdef XJ380
-		sleep_ms(1);
-#else
 		sleep_ms(16);
-#endif
 	}
 }
 
@@ -120,6 +118,14 @@ void Window::handle_message(unsigned long long type, unsigned long long h_data, 
 			if (component->handle_left_button(false, static_cast<int>(h_data), static_cast<int>(l_data))) {
 				changed = true;
 			}
+		} else if (type == kWindowMessageChar) {
+			if (component->handle_char_input(static_cast<char>(l_data), false)) {
+				changed = true;
+			}
+		} else if (type == kWindowMessageSpecialChar) {
+			if (component->handle_char_input(static_cast<char>(l_data), true)) {
+				changed = true;
+			}
 		}
 	}
 
@@ -143,11 +149,19 @@ void Window::addComponent(base_component* component) {
 	}
 
 	this->needs_redraw = true;
+	this->background_needs_clear = true;
 }
 
 void Window::draw_components() {
 	clear_draw_commands(this->handle);
+#ifdef XJ380
+	if (this->background_needs_clear) {
+		draw_rect(this->handle, 0, 0, this->width, this->height, 0xFFFFFFFF);
+		this->background_needs_clear = false;
+	}
+#else
 	draw_rect(this->handle, 0, 0, this->width, this->height, 0xFFFFFFFF);
+#endif
 	for (int i = 0; i < this->components.size(); ++i) {
 		if (this->components[i] != nullptr) {
 			this->components[i]->draw(this->handle);

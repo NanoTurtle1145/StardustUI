@@ -3,6 +3,7 @@ base_component::base_component()
     : mouse_active(false),
       click_active(false),
       hover_active(false),
+      focused(false),
       redraw_requested(false),
       click_feedback_frames(0),
       x(0),
@@ -100,6 +101,7 @@ bool base_component::handle_pointer_move(int x, int y) {
 bool base_component::handle_left_button(bool pressed, int x, int y) {
     const bool inside = this->contains(x, y);
     if (pressed) {
+        this->set_focus(inside);
         this->click_feedback_frames = 0;
         const bool changed = this->click_active != inside;
         this->set_click_state(inside);
@@ -119,6 +121,20 @@ bool base_component::handle_left_button(bool pressed, int x, int y) {
     }
     this->set_click_state(false);
     return was_active;
+}
+
+bool base_component::handle_char_input(char, bool) {
+    return false;
+}
+
+bool base_component::set_focus(bool focused) {
+    const bool changed = this->focused != focused;
+    this->focused = focused;
+    return changed;
+}
+
+bool base_component::has_focus() const {
+    return this->focused;
 }
 
 int base_component::get_width() const {

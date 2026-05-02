@@ -7,6 +7,8 @@ constexpr unsigned long long kWindowMessageMove = 1;
 constexpr unsigned long long kWindowMessageLeftButtonDown = 2;
 constexpr unsigned long long kWindowMessageLeftButtonUp = 3;
 constexpr unsigned long long kWindowMessageLeftButtonClick = 4;
+constexpr unsigned long long kWindowMessageChar = 5;
+constexpr unsigned long long kWindowMessageSpecialChar = 6;
 
 bool create_window(char *title, int width, int height, unsigned long long *handle);
 
