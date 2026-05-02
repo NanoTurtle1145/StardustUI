@@ -56,6 +56,11 @@ char g_last_error[256];
 bool g_sdl_ready = false;
 bool g_ttf_ready = false;
 
+int max_int(int a, int b)
+{
+    return a > b ? a : b;
+}
+
 void set_last_error(const char *message)
 {
     if (message == nullptr) {
@@ -328,6 +333,25 @@ void dispatch_mouse_move(WindowState *state, const SDL_MouseMotionEvent& motion)
                         static_cast<unsigned long long>(motion.x),
                         static_cast<unsigned long long>(motion.y));
 }
+
+void apply_window_outer_size(WindowState *state, int outer_width, int outer_height)
+{
+    if (state == nullptr || state->window == nullptr) {
+        return;
+    }
+
+    int top = 0;
+    int left = 0;
+    int bottom = 0;
+    int right = 0;
+    if (SDL_GetWindowBordersSize(state->window, &top, &left, &bottom, &right) != 0) {
+        return;
+    }
+
+    const int client_width = max_int(1, outer_width - left - right);
+    const int client_height = max_int(1, outer_height - top - bottom);
+    SDL_SetWindowSize(state->window, client_width, client_height);
+}
 }
 
 bool create_window(char *title, int width, int height, unsigned long long *handle)
@@ -359,6 +383,7 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
         return false;
     }
 
+    apply_window_outer_size(state, width, height);
     state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (state->renderer == nullptr) {
         state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
