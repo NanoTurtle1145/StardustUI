@@ -49,9 +49,9 @@ TARGET := $(BUILD_DIR)/helloworld
 SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/linux.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/linux.o
 CPPFLAGS += -DSTARDUSTUI_LINUX
-CPPFLAGS += $(shell pkg-config --cflags xft 2>/dev/null)
+CPPFLAGS += $(shell pkg-config --cflags sdl2 SDL2_ttf 2>/dev/null)
 CXXFLAGS ?= $(COMMON_CXXFLAGS)
-LDLIBS += $(shell pkg-config --libs xft 2>/dev/null) -lX11
+LDLIBS += $(shell pkg-config --libs sdl2 SDL2_ttf 2>/dev/null)
 else ifeq ($(PLATFORM),xj380)
 TARGET := $(BUILD_DIR)/helloworld.elf
 APP_OUT := ../../../../out/helloworld.elf

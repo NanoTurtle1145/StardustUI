@@ -1,10 +1,11 @@
 #include "../../platforms/linux.hpp"
 #include "../../includes/vector.hpp"
 
-#include <X11/Xft/Xft.h>
-#include <X11/Xlib.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
 #include <cstdio>
 #include <cstdlib>
+#include <time.h>
 
 namespace {
 struct DrawCommand {
@@ -25,34 +26,32 @@ struct DrawCommand {
 
 struct FontEntry {
     unsigned int size;
-    XftFont *font;
+    TTF_Font *font;
 
     FontEntry() : size(0), font(nullptr) {}
 };
 
 struct WindowState {
-    Display *display;
-    int screen;
-    Window window;
-    GC graphics_context;
-    XftDraw *xft_draw;
-    Atom delete_message;
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    Uint32 window_id;
+    window_message_proc message_proc;
     stardustui::vector<DrawCommand> commands;
     stardustui::vector<FontEntry> fonts;
 
     WindowState()
-        : display(nullptr),
-          screen(0),
-          window(0),
-          graphics_context(0),
-          xft_draw(nullptr),
-          delete_message(0),
+        : window(nullptr),
+          renderer(nullptr),
+          window_id(0),
+          message_proc(nullptr),
           commands(),
           fonts() {}
 };
 
 stardustui::vector<WindowState*> g_windows;
 char g_last_error[256];
+bool g_sdl_ready = false;
+bool g_ttf_ready = false;
 
 void set_last_error(const char *message)
 {
@@ -90,126 +89,16 @@ bool has_state(WindowState *state)
     return false;
 }
 
-unsigned long to_pixel(unsigned int color)
+WindowState *find_state_by_window_id(Uint32 window_id)
 {
-    unsigned int red = (color >> 24) & 0xFF;
-    unsigned int green = (color >> 16) & 0xFF;
-    unsigned int blue = (color >> 8) & 0xFF;
-    return (red << 16) | (green << 8) | blue;
-}
-
-XftFont *load_font(WindowState *state, unsigned int size)
-{
-    if (state == nullptr || state->display == nullptr) {
-        return nullptr;
-    }
-
-    unsigned int pixel_size = size == 0 ? 12 : size;
-    for (int index = 0; index < state->fonts.size(); ++index) {
-        if (state->fonts[index].size == pixel_size) {
-            return state->fonts[index].font;
+    for (int index = 0; index < g_windows.size(); ++index) {
+        WindowState *state = g_windows[index];
+        if (state != nullptr && state->window_id == window_id) {
+            return state;
         }
     }
 
-    char font_name[128];
-    std::snprintf(
-        font_name,
-        sizeof(font_name),
-        "Sans-%u",
-        pixel_size);
-
-    XftFont *font = XftFontOpenName(state->display, state->screen, font_name);
-
-    if (font == nullptr) {
-        std::snprintf(
-            font_name,
-            sizeof(font_name),
-            "DejaVu Sans-%u",
-            pixel_size);
-        font = XftFontOpenName(state->display, state->screen, font_name);
-    }
-
-    if (font == nullptr) {
-        font = XftFontOpenName(state->display, state->screen, "monospace-12");
-    }
-
-    if (font != nullptr) {
-        FontEntry entry;
-        entry.size = pixel_size;
-        entry.font = font;
-        state->fonts.push_back(entry);
-    } else {
-        log_serial("stardustui: Linux failed to load any X11 font\n");
-    }
-    return font;
-}
-
-void draw_command(WindowState *state, const DrawCommand& command)
-{
-    if (state == nullptr || state->display == nullptr || state->window == 0 || state->graphics_context == 0) {
-        return;
-    }
-
-    XSetForeground(state->display, state->graphics_context, to_pixel(command.color));
-
-    if (command.type == DrawCommand::Pixel) {
-        XDrawPoint(state->display, state->window, state->graphics_context, command.x, command.y);
-    } else {
-        XftFont *font = load_font(state, command.size);
-        int baseline = command.y + static_cast<int>(command.size == 0 ? 12 : command.size);
-
-        if (font != nullptr) {
-            baseline = command.y + font->ascent;
-            XRenderColor render_color{};
-            render_color.red = static_cast<unsigned short>(((command.color >> 24) & 0xFF) * 257);
-            render_color.green = static_cast<unsigned short>(((command.color >> 16) & 0xFF) * 257);
-            render_color.blue = static_cast<unsigned short>(((command.color >> 8) & 0xFF) * 257);
-            render_color.alpha = 0xFFFF;
-
-            XftColor xft_color{};
-            if (XftColorAllocValue(
-                    state->display,
-                    DefaultVisual(state->display, state->screen),
-                    DefaultColormap(state->display, state->screen),
-                    &render_color,
-                    &xft_color)) {
-                XftDrawStringUtf8(
-                    state->xft_draw,
-                    &xft_color,
-                    font,
-                    command.x,
-                    baseline,
-                    reinterpret_cast<const FcChar8*>(command.text.c_str()),
-                    command.text.length());
-                XftColorFree(
-                    state->display,
-                    DefaultVisual(state->display, state->screen),
-                    DefaultColormap(state->display, state->screen),
-                    &xft_color);
-            }
-        } else {
-            XDrawString(
-                state->display,
-                state->window,
-                state->graphics_context,
-                command.x,
-                baseline,
-                command.text.c_str(),
-                command.text.length());
-        }
-    }
-}
-
-void redraw(WindowState *state)
-{
-    if (state == nullptr) {
-        return;
-    }
-
-    for (int index = 0; index < state->commands.size(); ++index) {
-        draw_command(state, state->commands[index]);
-    }
-    XFlush(state->display);
+    return nullptr;
 }
 
 void remove_state(WindowState *state)
@@ -221,6 +110,210 @@ void remove_state(WindowState *state)
         }
     }
 }
+
+SDL_Color to_sdl_color(unsigned int color)
+{
+    SDL_Color result{};
+    result.r = static_cast<Uint8>((color >> 24) & 0xFF);
+    result.g = static_cast<Uint8>((color >> 16) & 0xFF);
+    result.b = static_cast<Uint8>((color >> 8) & 0xFF);
+    result.a = static_cast<Uint8>(color & 0xFF);
+    if (result.a == 0) {
+        result.a = 0xFF;
+    }
+    return result;
+}
+
+bool ensure_sdl()
+{
+    if (!g_sdl_ready) {
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+            set_last_error(SDL_GetError());
+            return false;
+        }
+        g_sdl_ready = true;
+    }
+
+    if (!g_ttf_ready) {
+        if (TTF_Init() != 0) {
+            set_last_error(TTF_GetError());
+            return false;
+        }
+        g_ttf_ready = true;
+    }
+
+    return true;
+}
+
+const char *font_paths[] = {
+    "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf",
+    "/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf",
+    "/usr/share/fonts/TTF/JetBrainsMonoNLNerdFont-Regular.ttf",
+    "/usr/share/fonts/TTF/Hack-Regular.ttf",
+    "/usr/share/fonts/TTF/AgaveNerdFont-Regular.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"
+};
+
+constexpr unsigned int kFontDpi = 96;
+constexpr unsigned int kPointsPerInch = 72;
+constexpr unsigned int kLinuxFontVisualScaleNum = 5;
+constexpr unsigned int kLinuxFontVisualScaleDen = 4;
+
+int abs_int(int value)
+{
+    return value < 0 ? -value : value;
+}
+
+TTF_Font *open_font(unsigned int size)
+{
+    const int point_size = static_cast<int>(size == 0 ? 12 : size);
+    const int base_pixel_height = static_cast<int>((point_size * static_cast<int>(kFontDpi) + static_cast<int>(kPointsPerInch / 2)) /
+                                                   static_cast<int>(kPointsPerInch));
+    const int target_pixel_height =
+        static_cast<int>((base_pixel_height * static_cast<int>(kLinuxFontVisualScaleNum) +
+                          static_cast<int>(kLinuxFontVisualScaleDen / 2)) /
+                         static_cast<int>(kLinuxFontVisualScaleDen));
+
+    for (unsigned int index = 0; index < sizeof(font_paths) / sizeof(font_paths[0]); ++index) {
+        int candidate_point_size = point_size;
+        TTF_Font *best_font = nullptr;
+        int best_diff = 1 << 30;
+
+        for (int iteration = 0; iteration < 5; ++iteration) {
+            if (candidate_point_size <= 0) {
+                candidate_point_size = 1;
+            }
+
+            TTF_Font *font = TTF_OpenFontDPI(font_paths[index], candidate_point_size, kFontDpi, kFontDpi);
+            if (font == nullptr) {
+                break;
+            }
+
+            const int actual_height = TTF_FontHeight(font);
+            const int diff = abs_int(actual_height - target_pixel_height);
+            if (diff < best_diff) {
+                if (best_font != nullptr) {
+                    TTF_CloseFont(best_font);
+                }
+                best_font = font;
+                best_diff = diff;
+            } else {
+                TTF_CloseFont(font);
+            }
+
+            if (diff <= 1 || actual_height <= 0) {
+                break;
+            }
+
+            int next_point_size = candidate_point_size * target_pixel_height / actual_height;
+            if (next_point_size == candidate_point_size) {
+                next_point_size += (actual_height < target_pixel_height) ? 1 : -1;
+            }
+            candidate_point_size = next_point_size;
+        }
+
+        if (best_font != nullptr) {
+            set_last_error(nullptr);
+            return best_font;
+        }
+    }
+
+    set_last_error(TTF_GetError());
+    return nullptr;
+}
+
+FontEntry *load_font(WindowState *state, unsigned int size)
+{
+    if (state == nullptr || !ensure_sdl()) {
+        return nullptr;
+    }
+
+    const unsigned int pixel_size = size == 0 ? 12 : size;
+    for (int index = 0; index < state->fonts.size(); ++index) {
+        if (state->fonts[index].size == pixel_size) {
+            return &state->fonts[index];
+        }
+    }
+
+    FontEntry entry;
+    entry.size = pixel_size;
+    entry.font = open_font(pixel_size);
+    state->fonts.push_back(entry);
+
+    if (state->fonts.size() == 0) {
+        return nullptr;
+    }
+    return &state->fonts[state->fonts.size() - 1];
+}
+
+void draw_command(WindowState *state, const DrawCommand& command)
+{
+    if (state == nullptr || state->renderer == nullptr) {
+        return;
+    }
+
+    SDL_Color color = to_sdl_color(command.color);
+
+    if (command.type == DrawCommand::Pixel) {
+        SDL_SetRenderDrawColor(state->renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderDrawPoint(state->renderer, command.x, command.y);
+        return;
+    }
+
+    FontEntry *font_entry = load_font(state, command.size);
+    if (font_entry == nullptr || font_entry->font == nullptr) {
+        log_serial("stardustui: SDL_ttf failed to load font for draw_text\n");
+        return;
+    }
+
+    SDL_Surface *surface = TTF_RenderUTF8_Blended(font_entry->font, command.text.c_str(), color);
+    if (surface == nullptr) {
+        return;
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(state->renderer, surface);
+    if (texture != nullptr) {
+        SDL_Rect destination{};
+        destination.x = command.x;
+        destination.y = command.y;
+        destination.w = surface->w;
+        destination.h = surface->h;
+        SDL_RenderCopy(state->renderer, texture, nullptr, &destination);
+        SDL_DestroyTexture(texture);
+    }
+
+    SDL_FreeSurface(surface);
+}
+
+void redraw(WindowState *state)
+{
+    if (state == nullptr || state->renderer == nullptr) {
+        return;
+    }
+
+    SDL_SetRenderDrawColor(state->renderer, 255, 255, 255, 255);
+    SDL_RenderClear(state->renderer);
+
+    for (int index = 0; index < state->commands.size(); ++index) {
+        draw_command(state, state->commands[index]);
+    }
+
+    SDL_RenderPresent(state->renderer);
+}
+
+void dispatch_mouse_move(WindowState *state, const SDL_MouseMotionEvent& motion)
+{
+    if (state == nullptr || state->message_proc == nullptr) {
+        return;
+    }
+
+    state->message_proc(kWindowMessageMove,
+                        static_cast<unsigned long long>(motion.x),
+                        static_cast<unsigned long long>(motion.y));
+}
 }
 
 bool create_window(char *title, int width, int height, unsigned long long *handle)
@@ -230,75 +323,41 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
         return false;
     }
 
-    Display *display = XOpenDisplay(nullptr);
-    if (display == nullptr) {
-        set_last_error("cannot open X display; check DISPLAY and X11/XWayland availability");
+    if (!ensure_sdl()) {
         return false;
     }
 
     WindowState *state = new WindowState();
     if (state == nullptr) {
         set_last_error("failed to allocate window state");
-        XCloseDisplay(display);
         return false;
     }
 
-    state->display = display;
-    state->screen = DefaultScreen(display);
-
-    unsigned long white = WhitePixel(display, state->screen);
-    unsigned long black = BlackPixel(display, state->screen);
-
-    state->window = XCreateSimpleWindow(
-        display,
-        RootWindow(display, state->screen),
-        0,
-        0,
-        static_cast<unsigned int>(width),
-        static_cast<unsigned int>(height),
-        1,
-        black,
-        white);
-
-    if (state->window == 0) {
-        set_last_error("XCreateSimpleWindow failed");
+    state->window = SDL_CreateWindow(title,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     width,
+                                     height,
+                                     SDL_WINDOW_SHOWN);
+    if (state->window == nullptr) {
+        set_last_error(SDL_GetError());
         delete state;
-        XCloseDisplay(display);
         return false;
     }
 
-    XStoreName(display, state->window, title);
-    XSelectInput(display, state->window, ExposureMask | KeyPressMask | StructureNotifyMask);
+    state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (state->renderer == nullptr) {
+        state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
+    }
 
-    state->delete_message = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(display, state->window, &state->delete_message, 1);
-
-    state->graphics_context = XCreateGC(display, state->window, 0, nullptr);
-    if (state->graphics_context == 0) {
-        set_last_error("XCreateGC failed");
-        XDestroyWindow(display, state->window);
+    if (state->renderer == nullptr) {
+        set_last_error(SDL_GetError());
+        SDL_DestroyWindow(state->window);
         delete state;
-        XCloseDisplay(display);
         return false;
     }
 
-    state->xft_draw = XftDrawCreate(
-        display,
-        state->window,
-        DefaultVisual(display, state->screen),
-        DefaultColormap(display, state->screen));
-    if (state->xft_draw == nullptr) {
-        set_last_error("XftDrawCreate failed");
-        XFreeGC(display, state->graphics_context);
-        XDestroyWindow(display, state->window);
-        delete state;
-        XCloseDisplay(display);
-        return false;
-    }
-
-    XMapWindow(display, state->window);
-    XFlush(display);
-
+    state->window_id = SDL_GetWindowID(state->window);
     *handle = from_state(state);
     g_windows.push_back(state);
     set_last_error(nullptr);
@@ -327,38 +386,64 @@ void append_debug_log(const char *message)
 
 void refresh_window(unsigned long long handle)
 {
-    WindowState *state = to_state(handle);
-    redraw(state);
+    redraw(to_state(handle));
 }
 
 void wait_window()
 {
-    while (true) {
-        bool any_window = false;
+    while (!g_windows.empty()) {
+        pump_window_events();
+        sleep_ms(16);
+    }
+}
 
-        for (int index = 0; index < g_windows.size(); ++index) {
-            WindowState *state = g_windows[index];
-            if (state == nullptr || state->display == nullptr) {
-                continue;
+void set_window_message_processor(unsigned long long handle, window_message_proc proc)
+{
+    WindowState *state = to_state(handle);
+    if (state != nullptr) {
+        state->message_proc = proc;
+    }
+}
+
+void pump_window_events()
+{
+    SDL_Event event{};
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            for (int index = 0; index < g_windows.size(); ++index) {
+                if (g_windows[index] != nullptr) {
+                    delete_window(from_state(g_windows[index]));
+                }
             }
-
-            any_window = true;
-            XEvent event{};
-            XNextEvent(state->display, &event);
-
-            if (event.type == Expose) {
-                redraw(state);
-            } else if (event.type == ClientMessage && static_cast<Atom>(event.xclient.data.l[0]) == state->delete_message) {
-                delete_window(from_state(state));
-            } else if (event.type == DestroyNotify) {
-                remove_state(state);
-            }
+            break;
         }
 
-        if (!any_window) {
-            return;
+        Uint32 window_id = 0;
+        if (event.type == SDL_MOUSEMOTION) {
+            window_id = event.motion.windowID;
+        } else if (event.type == SDL_WINDOWEVENT) {
+            window_id = event.window.windowID;
+        }
+
+        WindowState *state = find_state_by_window_id(window_id);
+        if (state == nullptr) {
+            continue;
+        }
+
+        if (event.type == SDL_MOUSEMOTION) {
+            dispatch_mouse_move(state, event.motion);
+        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED) {
+            redraw(state);
+        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
+            delete_window(from_state(state));
         }
     }
+}
+
+bool is_window_open(unsigned long long handle)
+{
+    WindowState *state = to_state(handle);
+    return state != nullptr && has_state(state);
 }
 
 bool delete_window(unsigned long long handle)
@@ -370,25 +455,40 @@ bool delete_window(unsigned long long handle)
 
     remove_state(state);
 
-    if (state->display != nullptr) {
-        for (int index = 0; index < state->fonts.size(); ++index) {
-            if (state->fonts[index].font != nullptr) {
-                XftFontClose(state->display, state->fonts[index].font);
-            }
+    for (int index = 0; index < state->fonts.size(); ++index) {
+        if (state->fonts[index].font != nullptr) {
+            TTF_CloseFont(state->fonts[index].font);
         }
-        if (state->xft_draw != nullptr) {
-            XftDrawDestroy(state->xft_draw);
-        }
-        if (state->graphics_context != 0) {
-            XFreeGC(state->display, state->graphics_context);
-        }
-        if (state->window != 0) {
-            XDestroyWindow(state->display, state->window);
-        }
-        XCloseDisplay(state->display);
+    }
+
+    if (state->renderer != nullptr) {
+        SDL_DestroyRenderer(state->renderer);
+    }
+    if (state->window != nullptr) {
+        SDL_DestroyWindow(state->window);
     }
 
     delete state;
+
+    bool any_window = false;
+    for (int index = 0; index < g_windows.size(); ++index) {
+        if (g_windows[index] != nullptr) {
+            any_window = true;
+            break;
+        }
+    }
+
+    if (!any_window) {
+        if (g_ttf_ready) {
+            TTF_Quit();
+            g_ttf_ready = false;
+        }
+        if (g_sdl_ready) {
+            SDL_Quit();
+            g_sdl_ready = false;
+        }
+    }
+
     return true;
 }
 
@@ -405,9 +505,6 @@ void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
     command.y = y;
     command.color = color;
     state->commands.push_back(command);
-
-    draw_command(state, command);
-    XFlush(state->display);
 }
 
 void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsigned int size, const stardustui::string& text)
@@ -425,7 +522,28 @@ void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsi
     command.size = size;
     command.text = text;
     state->commands.push_back(command);
+}
 
-    draw_command(state, command);
-    XFlush(state->display);
+unsigned int calc_text_width(const stardustui::string& text, unsigned int size)
+{
+    if (!ensure_sdl()) {
+        return static_cast<unsigned int>(text.length() * (size == 0 ? 12 : size));
+    }
+
+    TTF_Font *font = open_font(size == 0 ? 12 : size);
+    if (font == nullptr) {
+        log_serial("stardustui: SDL_ttf failed to load font for calc_text_width\n");
+        return static_cast<unsigned int>(text.length() * (size == 0 ? 12 : size));
+    }
+
+    int width = 0;
+    int height = 0;
+    TTF_SizeUTF8(font, text.c_str(), &width, &height);
+    TTF_CloseFont(font);
+    return static_cast<unsigned int>(width);
+}
+
+void sleep_ms(unsigned long long ms)
+{
+    SDL_Delay(static_cast<Uint32>(ms));
 }

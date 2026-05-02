@@ -4,6 +4,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <windowsx.h>
 
 namespace {
 const wchar_t kWindowClassName[] = L"StardustUIWindow";
@@ -26,9 +27,10 @@ struct DrawCommand {
 
 struct WindowState {
     HWND handle;
+    window_message_proc message_proc;
     stardustui::vector<DrawCommand> commands;
 
-    WindowState() : handle(nullptr), commands() {}
+    WindowState() : handle(nullptr), message_proc(nullptr), commands() {}
 };
 
 stardustui::vector<WindowState*> g_windows;
@@ -154,6 +156,25 @@ void render_command(HDC device_context, const DrawCommand& command)
     }
 }
 
+HFONT create_font(unsigned int size)
+{
+    return CreateFontW(
+        -static_cast<int>(size == 0 ? 12 : size),
+        0,
+        0,
+        0,
+        FW_NORMAL,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"Segoe UI");
+}
+
 LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     switch (message) {
@@ -167,6 +188,16 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             }
         }
         EndPaint(hwnd, &paint);
+        return 0;
+    }
+    case WM_MOUSEMOVE: {
+        WindowState *state = find_state(hwnd);
+        if (state != nullptr && state->message_proc != nullptr) {
+            state->message_proc(
+                kWindowMessageMove,
+                static_cast<unsigned long long>(GET_X_LPARAM(lparam)),
+                static_cast<unsigned long long>(GET_Y_LPARAM(lparam)));
+        }
         return 0;
     }
     case WM_DESTROY:
@@ -270,6 +301,15 @@ void refresh_window(unsigned long long handle)
     }
 }
 
+void set_window_message_processor(unsigned long long handle, window_message_proc proc)
+{
+    HWND window = to_hwnd(handle);
+    WindowState *state = find_state(window);
+    if (state != nullptr) {
+        state->message_proc = proc;
+    }
+}
+
 void wait_window()
 {
     MSG message{};
@@ -277,6 +317,24 @@ void wait_window()
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
+}
+
+void pump_window_events()
+{
+    MSG message{};
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+        if (message.message == WM_QUIT) {
+            break;
+        }
+        TranslateMessage(&message);
+        DispatchMessageW(&message);
+    }
+}
+
+bool is_window_open(unsigned long long handle)
+{
+    HWND window = to_hwnd(handle);
+    return window != nullptr && IsWindow(window) != 0;
 }
 
 bool delete_window(unsigned long long handle)
@@ -341,4 +399,38 @@ void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsi
 
     render_command(device_context, command);
     ReleaseDC(window, device_context);
+}
+
+unsigned int calc_text_width(const stardustui::string& text, unsigned int size)
+{
+    wchar_t wide_text[1024];
+    to_wide(text.c_str(), wide_text, static_cast<int>(sizeof(wide_text) / sizeof(wide_text[0])));
+
+    HDC device_context = GetDC(nullptr);
+    if (device_context == nullptr) {
+        return static_cast<unsigned int>(text.length() * (size == 0 ? 12 : size));
+    }
+
+    HFONT font = create_font(size);
+    HGDIOBJ old_font = nullptr;
+    if (font != nullptr) {
+        old_font = SelectObject(device_context, font);
+    }
+
+    SIZE text_size{};
+    GetTextExtentPoint32W(device_context, wide_text, lstrlenW(wide_text), &text_size);
+
+    if (old_font != nullptr) {
+        SelectObject(device_context, old_font);
+    }
+    if (font != nullptr) {
+        DeleteObject(font);
+    }
+    ReleaseDC(nullptr, device_context);
+    return static_cast<unsigned int>(text_size.cx);
+}
+
+void sleep_ms(unsigned long long ms)
+{
+    Sleep(static_cast<DWORD>(ms));
 }

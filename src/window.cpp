@@ -45,7 +45,8 @@ void Window::show() {
 	refresh_window(this->handle);
 	append_debug_log("stardustui: refresh_window ok\n");
 	append_debug_log("stardustui: wait_window enter\n");
-	while (true) {
+	while (is_window_open(this->handle)) {
+		pump_window_events();
 		for (int i = 0; i < components.size(); ++i) {
 			components[i]->update();
 		}

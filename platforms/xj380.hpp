@@ -17,6 +17,8 @@ void refresh_window(unsigned long long handle);
 void wait_window();
 
 void set_window_message_processor(unsigned long long handle, window_message_proc proc);
+void pump_window_events();
+bool is_window_open(unsigned long long handle);
 
 bool delete_window(unsigned long long handle);
 

@@ -17,7 +17,7 @@ CPPFLAGS += -DSTARDUSTUI_WINDOWS
 else ifeq ($(PLATFORM),linux)
 SRC_FILES += src/platforms/linux.cpp
 CPPFLAGS += -DSTARDUSTUI_LINUX
-CPPFLAGS += $(shell pkg-config --cflags xft 2>/dev/null)
+CPPFLAGS += $(shell pkg-config --cflags sdl2 SDL2_ttf 2>/dev/null)
 else ifeq ($(PLATFORM),xj380)
 SRC_FILES += src/platforms/xj380.cpp
 CPPFLAGS += -DXJ380

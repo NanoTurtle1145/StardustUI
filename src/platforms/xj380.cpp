@@ -106,6 +106,15 @@ void wait_window()
     }
 }
 
+void pump_window_events()
+{
+}
+
+bool is_window_open(unsigned long long handle)
+{
+    return handle != 0;
+}
+
 bool delete_window(unsigned long long handle)
 {
     if (handle == 0) return false;
