@@ -1,8 +1,8 @@
-# Quick Start
+# 快速开始
 
-This quick start follows the current `examples/helloworld/helloworld.cpp`.
+本页示例与当前 `examples/helloworld/helloworld.cpp` 保持一致。
 
-## 1. Include headers
+## 1. 包含头文件
 
 ```cpp
 #include "../../includes/window.hpp"
@@ -10,13 +10,13 @@ This quick start follows the current `examples/helloworld/helloworld.cpp`.
 #include "../../includes/sytle.hpp"
 ```
 
-## 2. Create a window
+## 2. 创建窗口
 
 ```cpp
 Window window("Hello, World!", 400, 300);
 ```
 
-## 3. Create hover style
+## 3. 创建悬停样式
 
 ```cpp
 Sytel base_style;
@@ -31,7 +31,7 @@ rules.set_base_sytel(base_style);
 rules.set_on_hover_sytel(hover_style);
 ```
 
-## 4. Create a label and attach style
+## 4. 创建文字控件并绑定样式
 
 ```cpp
 Lable hello_label("Hello, World!", 24, 0x000000FF);
@@ -39,16 +39,16 @@ hello_label.set_style_rules(rules);
 hello_label.set_pos(100, 100);
 ```
 
-## 5. Add the component and show the window
+## 5. 加入窗口并显示
 
 ```cpp
 window.addComponent(hello_label);
 window.show();
 ```
 
-When the mouse moves over the text, the label changes to red.
+当鼠标移动到文字上方时，文字会变成红色。
 
-## Full example
+## 完整示例
 
 ```cpp
 #include "../../includes/window.hpp"
@@ -80,9 +80,9 @@ int main(int argc, char *argv[], char *envp[])
 }
 ```
 
-## Build and run
+## 构建与运行
 
-Linux:
+Linux：
 
 ```bash
 cd examples/helloworld
@@ -90,22 +90,22 @@ make PLATFORM=linux
 ./build/linux/helloworld
 ```
 
-Windows:
+Windows：
 
 ```bash
 cd examples/helloworld
 make PLATFORM=windows CXX=x86_64-w64-mingw32-g++
 ```
 
-XJ380:
+XJ380：
 
 ```bash
 cd examples/helloworld
 make PLATFORM=xj380
 ```
 
-## Notes
+## 说明
 
-- The current component class name is `Lable`, not `Label`.
-- The current style header is `sytle.hpp`, not `style.hpp`.
-- `window.addComponent(...)` accepts both a reference and a pointer overload.
+- 当前文字控件类名是 `Lable`，不是 `Label`。
+- 当前样式头文件名是 `sytle.hpp`，不是 `style.hpp`。
+- `window.addComponent(...)` 现在同时支持引用和指针重载。

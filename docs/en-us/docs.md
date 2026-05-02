@@ -1,9 +1,18 @@
-# StardustUI Docs📃
+# StardustUI Documentation
 
-1. [How to install](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fen-us%2Finstall.md)
-2. [Quick start](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fen-us%2Fquickstart.md)
-3. [Create a window](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fen-us%2Fwindow%2Fcreate_window.md)
-4. [Create an chat application](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fen-us%2Fexample%2Fchat%2Findex.md) 
-5. [Cross Platfroms](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fen-us%2Fplatform.md)
+This directory documents the current code in this repository.
 
-© 2026 Xingji Studio
+## Pages
+
+1. [Install and build](./install.md)
+2. [Quick start](./quickstart.md)
+3. [Create a window](./create_window.md)
+4. [Style system](./style.md)
+
+## Current platform targets
+
+- `XJ380`
+- `STARDUSTUI_WINDOWS`
+- `STARDUSTUI_LINUX`
+
+Platform selection is auto-detected in `settings.hpp`, but you can still define a target macro manually before including it.

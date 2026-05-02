@@ -3,21 +3,27 @@
 
 **简体中文**  [English](https://github.com/xingji-studio/StardustUI/blob/main/README.md)
 
----   
+---
 
 > StardustUI 是一个现代化的 UI 框架
 
-## 支持的平台💻
+## 支持的平台
+
 - XJ380
 - Windows
 - Linux
 
-## 示例 🎉
+## 示例
 
 ![XJ380 上的 Hello World](https://nutpacks.oss-cn-beijing.aliyuncs.com/StardustUI/Images/Image_1777641206153_467.jpg)XJ380 上的 Hello World
 
-## 如何使用🎊
-### [文档](https://github.com/xingji-studio/StardustUI/blob/main/docs%2Fzh-cn%2Fdocs.md)
+## 文档
+
+- [文档目录](./docs.md)
+- [安装与构建](./install.md)
+- [快速开始](./quickstart.md)
+- [创建窗口](./create_window.md)
+- [样式系统](./style.md)
 
 ## Star 历史
 
