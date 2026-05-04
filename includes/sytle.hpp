@@ -102,5 +102,3 @@ private:
     Sytel on_click_sytel;
     Sytel on_hover_sytel;
 };
-
-#include "../src/sytel.hpp"

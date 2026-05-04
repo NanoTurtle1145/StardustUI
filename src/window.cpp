@@ -1,5 +1,4 @@
 #include "../includes/window.hpp"
-
 namespace {
 Window* g_active_window = nullptr;
 
@@ -42,8 +41,15 @@ void Window::show() {
 	append_debug_log("stardustui: create_window ok\n");
 	g_active_window = this;
 	this->background_needs_clear = true;
+	draw_rect(this->handle, 0, 0, this->width, this->height, 0xFFFFFFFF);
+	refresh_window(this->handle);
+	append_debug_log("stardustui: set_window_message_processor begin\n");
 	set_window_message_processor(this->handle, dispatch_window_message);
+	append_debug_log("stardustui: set_window_message_processor ok\n");
+	append_debug_log("stardustui: draw_components begin\n");
 	draw_components();
+	append_debug_log("stardustui: draw_components ok\n");
+	append_debug_log("stardustui: refresh_window begin\n");
 	refresh_window(this->handle);
 	append_debug_log("stardustui: refresh_window ok\n");
 	append_debug_log("stardustui: wait_window enter\n");

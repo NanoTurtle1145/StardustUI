@@ -1,14 +1,6 @@
 #pragma once
 #include "../settings.hpp"
-#ifdef  XJ380
-#include "../platforms/xj380.hpp"
-#endif
-#ifdef STARDUSTUI_WINDOWS
-#include "../platforms/windows.hpp"
-#endif
-#ifdef STARDUSTUI_LINUX
-#include "../platforms/linux.hpp"
-#endif
+#include "../platforms/platform.hpp"
 #include "components/base.hpp"
 #include "string.hpp"
 #include "vector.hpp"

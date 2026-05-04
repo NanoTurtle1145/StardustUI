@@ -1,14 +1,6 @@
 #include "../../includes/components/button.hpp"
 #include "../../settings.hpp"
-#ifdef  XJ380
-#include "../../platforms/xj380.hpp"
-#endif
-#ifdef STARDUSTUI_WINDOWS
-#include "../../platforms/windows.hpp"
-#endif
-#ifdef STARDUSTUI_LINUX
-#include "../../platforms/linux.hpp"
-#endif
+#include "../../platforms/platform.hpp"
 
 namespace {
 int max_int(int a, int b) {
@@ -37,6 +29,7 @@ void Button::draw(unsigned long long handle) {
     const unsigned int text_color = style.get_color(0x000000FF);
     const unsigned int text_size = style.get_size(16);
     const unsigned int padding = style.get_padding(12);
+    const int text_height = static_cast<int>(calc_text_height(this->text, text_size));
 
     draw_rect(handle, static_cast<int>(this->x), static_cast<int>(this->y), this->get_width(), this->get_height(), border_color);
 
@@ -50,8 +43,14 @@ void Button::draw(unsigned long long handle) {
 
     const int text_width = static_cast<int>(calc_text_width(this->text, text_size));
     const int text_x = static_cast<int>(this->x) + max_int(static_cast<int>(padding), (this->get_width() - text_width) / 2);
-    const int text_y = static_cast<int>(this->y) + max_int(0, (this->get_height() - static_cast<int>(text_size)) / 2);
-    draw_text(handle, text_x, text_y, text_color, text_size, this->text);
+    const int text_y = static_cast<int>(this->y) + max_int(0, (this->get_height() - text_height) / 2);
+    draw_text_on_solid_background(handle,
+                                  text_x,
+                                  text_y,
+                                  text_color,
+                                  text_size,
+                                  background_color,
+                                  this->text);
 }
 
 int Button::get_preferred_width() const {

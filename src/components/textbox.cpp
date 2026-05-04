@@ -1,14 +1,6 @@
 #include "../../includes/components/textbox.hpp"
 #include "../../settings.hpp"
-#ifdef  XJ380
-#include "../../platforms/xj380.hpp"
-#endif
-#ifdef STARDUSTUI_WINDOWS
-#include "../../platforms/windows.hpp"
-#endif
-#ifdef STARDUSTUI_LINUX
-#include "../../platforms/linux.hpp"
-#endif
+#include "../../platforms/platform.hpp"
 
 namespace {
 int max_int(int a, int b) {
@@ -108,12 +100,13 @@ void TextBox::draw(unsigned long long handle) {
         }
 
         this->scratch_text = this->build_text_slice(line.start, line.length);
-        draw_text(handle,
-                  text_x,
-                  text_y + line_index * line_height,
-                  text_color,
-                  text_size,
-                  this->scratch_text);
+        draw_text_on_solid_background(handle,
+                                      text_x,
+                                      text_y + line_index * line_height,
+                                      text_color,
+                                      text_size,
+                                      background_color,
+                                      this->scratch_text);
     }
 
     if (this->input_enabled && this->has_focus() && this->cursor_visible) {
@@ -339,8 +332,9 @@ void TextBox::invalidate_layout() {
 }
 
 int TextBox::get_line_height(unsigned int text_size) const {
-    const int height = static_cast<int>(text_size) + static_cast<int>(text_size / 2);
-    return max_int(18, height);
+    stardustui::string sample("gjpqyAQ");
+    const int measured = static_cast<int>(calc_text_height(sample, text_size));
+    return max_int(18, measured + 2);
 }
 
 int TextBox::get_scrollbar_width() const {
@@ -364,12 +358,8 @@ void TextBox::rebuild_wrapped_lines(unsigned int text_size, int content_width) {
 
     int line_start = 0;
     int line_length = 0;
-#ifdef XJ380
     const int content_limit = max_int(1, content_width - 2);
     int line_width = 0;
-#else
-    stardustui::string current_line;
-#endif
 
     for (int index = 0; index < length; ++index) {
         const char ch = raw[index];
@@ -385,15 +375,10 @@ void TextBox::rebuild_wrapped_lines(unsigned int text_size, int content_width) {
 
             line_start = index + 1;
             line_length = 0;
-#ifdef XJ380
             line_width = 0;
-#else
-            current_line.assign("");
-#endif
             continue;
         }
 
-#ifdef XJ380
         const int char_width = this->get_cached_char_width(text_size, static_cast<unsigned char>(ch));
         if (line_length > 0 && line_width + char_width > content_limit) {
             WrappedLine line;
@@ -408,21 +393,6 @@ void TextBox::rebuild_wrapped_lines(unsigned int text_size, int content_width) {
         }
 
         line_width += char_width;
-#else
-        current_line.push_char(ch);
-        if (line_length > 0 && static_cast<int>(calc_text_width(current_line, text_size)) > content_width) {
-            WrappedLine line;
-            line.start = line_start;
-            line.length = line_length;
-            this->wrapped_lines.push_back(line);
-
-            line_start = index;
-            line_length = 1;
-            current_line.assign("");
-            current_line.push_char(ch);
-            continue;
-        }
-#endif
 
         ++line_length;
     }

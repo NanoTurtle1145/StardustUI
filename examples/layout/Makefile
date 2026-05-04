@@ -10,10 +10,18 @@ HOST_WINDOWS := $(filter Windows_NT,$(OS))
 
 FRAMEWORK_DIR := ../..
 ROOT_DIR := ../../../..
+ABGR_WRAPPER_DIR := $(FRAMEWORK_DIR)/third_party/ab_glyph_rasterizer/wrapper
+ABGR_LIB := $(ABGR_WRAPPER_DIR)/target/release/libstardustui_ab_glyph_rasterizer_capi.a
 
 SRC_FILES := \
 	layout.cpp \
 	$(FRAMEWORK_DIR)/src/file.cpp \
+	$(FRAMEWORK_DIR)/src/theme.cpp \
+	$(FRAMEWORK_DIR)/src/sytel.cpp \
+	$(FRAMEWORK_DIR)/src/text/font.cpp \
+	$(FRAMEWORK_DIR)/src/text/text_renderer.cpp \
+	$(FRAMEWORK_DIR)/src/text/rasterizer/rasterizer.cpp \
+	$(FRAMEWORK_DIR)/src/text/truetype/face.cpp \
 	$(FRAMEWORK_DIR)/src/window.cpp \
 	$(FRAMEWORK_DIR)/src/components/base.cpp \
 	$(FRAMEWORK_DIR)/src/components/lable.cpp \
@@ -26,6 +34,12 @@ SRC_FILES := \
 OBJ_FILES := \
 	$(OBJ_DIR)/layout.o \
 	$(OBJ_DIR)/framework/file.o \
+	$(OBJ_DIR)/framework/theme.o \
+	$(OBJ_DIR)/framework/sytel.o \
+	$(OBJ_DIR)/framework/text/font.o \
+	$(OBJ_DIR)/framework/text/text_renderer.o \
+	$(OBJ_DIR)/framework/text/rasterizer/rasterizer.o \
+	$(OBJ_DIR)/framework/text/truetype/face.o \
 	$(OBJ_DIR)/framework/window.o \
 	$(OBJ_DIR)/framework/components/base.o \
 	$(OBJ_DIR)/framework/components/lable.o \
@@ -40,6 +54,12 @@ FRAMEWORK_HEADERS := \
 	$(FRAMEWORK_DIR)/includes/string.hpp \
 	$(FRAMEWORK_DIR)/includes/vector.hpp \
 	$(FRAMEWORK_DIR)/includes/file.hpp \
+	$(FRAMEWORK_DIR)/includes/theme.hpp \
+	$(FRAMEWORK_DIR)/includes/text/font.hpp \
+	$(FRAMEWORK_DIR)/includes/text/text_renderer.hpp \
+	$(FRAMEWORK_DIR)/includes/text/rasterizer/geometry.hpp \
+	$(FRAMEWORK_DIR)/includes/text/rasterizer/rasterizer.hpp \
+	$(FRAMEWORK_DIR)/includes/text/truetype/face.hpp \
 	$(FRAMEWORK_DIR)/includes/window.hpp \
 	$(FRAMEWORK_DIR)/includes/sytle.hpp \
 	$(FRAMEWORK_DIR)/includes/components/base.hpp \
@@ -49,9 +69,7 @@ FRAMEWORK_HEADERS := \
 	$(FRAMEWORK_DIR)/includes/components/scrollbar.hpp \
 	$(FRAMEWORK_DIR)/includes/components/textbox.hpp \
 	$(FRAMEWORK_DIR)/includes/components/flex.hpp \
-	$(FRAMEWORK_DIR)/platforms/linux.hpp \
-	$(FRAMEWORK_DIR)/platforms/windows.hpp \
-	$(FRAMEWORK_DIR)/platforms/xj380.hpp
+	$(FRAMEWORK_DIR)/platforms/platform.hpp
 
 CPPFLAGS += -I$(FRAMEWORK_DIR) -I$(FRAMEWORK_DIR)/includes
 COMMON_CXXFLAGS := -O0 -Wall -g -std=gnu++17
@@ -62,15 +80,16 @@ SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/windows.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/windows.o
 CPPFLAGS += -DSTARDUSTUI_WINDOWS
 CXXFLAGS ?= $(COMMON_CXXFLAGS)
-LDLIBS += -luser32 -lgdi32
+LDLIBS += -luser32 -lgdi32 -lmsimg32
 else ifeq ($(PLATFORM),linux)
 TARGET := $(BUILD_DIR)/layout
 SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/linux.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/linux.o
 CPPFLAGS += -DSTARDUSTUI_LINUX
-CPPFLAGS += $(shell pkg-config --cflags sdl2 SDL2_ttf 2>/dev/null)
+CPPFLAGS += -DSTARDUSTUI_USE_AB_GLYPH_RASTERIZER
+CPPFLAGS += $(shell pkg-config --cflags sdl2 2>/dev/null)
 CXXFLAGS ?= $(COMMON_CXXFLAGS)
-LDLIBS += $(shell pkg-config --libs sdl2 SDL2_ttf 2>/dev/null)
+LDLIBS += $(ABGR_LIB) $(shell pkg-config --libs sdl2 2>/dev/null) -ldl -lpthread -lm
 else ifeq ($(PLATFORM),xj380)
 TARGET := $(BUILD_DIR)/layout.elf
 APP_OUT := ../../../../out/layout.elf
@@ -85,7 +104,7 @@ XAPI_HEADERS := $(shell find $(XAPI_DIR)/include -type f \( -name '*.h' -o -name
 SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/xj380.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/xj380.o
 CPPFLAGS += -DXJ380
-CXXFLAGS ?= -O0 -Wall -g -ffreestanding -fno-builtin -m64 -mstackrealign -std=gnu++17 -fno-stack-protector -fno-exceptions -fno-rtti -fshort-wchar -nostdinc -Wno-write-strings
+CXXFLAGS ?= -O2 -Wall -g -ffreestanding -fno-builtin -m64 -mstackrealign -std=gnu++17 -fno-stack-protector -fno-exceptions -fno-rtti -fshort-wchar -nostdinc -Wno-write-strings
 LDFLAGS ?= -Ttext=0x200000 -e xapi_start
 else
 $(error Unsupported PLATFORM '$(PLATFORM)'. Use PLATFORM=windows, PLATFORM=linux, or PLATFORM=xj380)
@@ -117,7 +136,11 @@ else
 xapi:
 	@echo "xapi is only used for PLATFORM=xj380"
 
-$(TARGET): $(OBJ_FILES)
+$(ABGR_LIB):
+	@cargo build --manifest-path $(ABGR_WRAPPER_DIR)/Cargo.toml --release
+	@echo "CARGO $(ABGR_WRAPPER_DIR)"
+
+$(TARGET): $(OBJ_FILES) $(if $(filter linux,$(PLATFORM)),$(ABGR_LIB))
 	@$(call make-dir,$(dir $@))
 	@$(CXX) $(OBJ_FILES) $(LDFLAGS) $(LDLIBS) -o $@
 	@echo "LINK $(TARGET)"
@@ -137,6 +160,36 @@ $(OBJ_DIR)/framework/window.o: $(FRAMEWORK_DIR)/src/window.cpp $(FRAMEWORK_HEADE
 	@echo "CPP $< -> $@"
 
 $(OBJ_DIR)/framework/file.o: $(FRAMEWORK_DIR)/src/file.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/theme.o: $(FRAMEWORK_DIR)/src/theme.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/sytel.o: $(FRAMEWORK_DIR)/src/sytel.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/text/font.o: $(FRAMEWORK_DIR)/src/text/font.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/text/text_renderer.o: $(FRAMEWORK_DIR)/src/text/text_renderer.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/text/rasterizer/rasterizer.o: $(FRAMEWORK_DIR)/src/text/rasterizer/rasterizer.cpp $(FRAMEWORK_HEADERS)
+	@$(call make-dir,$(dir $@))
+	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	@echo "CPP $< -> $@"
+
+$(OBJ_DIR)/framework/text/truetype/face.o: $(FRAMEWORK_DIR)/src/text/truetype/face.cpp $(FRAMEWORK_HEADERS)
 	@$(call make-dir,$(dir $@))
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	@echo "CPP $< -> $@"

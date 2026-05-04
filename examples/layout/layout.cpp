@@ -5,6 +5,8 @@
 #include "../../includes/components/lable.hpp"
 #include "../../includes/components/textbox.hpp"
 #include "../../includes/sytle.hpp"
+#include "../../includes/theme.hpp"
+#include "../../platforms/platform.hpp"
 
 namespace {
 TextBox* g_history_box = nullptr;
@@ -70,40 +72,66 @@ void on_send_click() {
     g_input_box->set_text("");
     g_status_label->set_text("Message sent");
 }
+
+SytelRules make_panel_rules(unsigned int background,
+                            unsigned int border,
+                            unsigned int border_width = 1) {
+    Sytel panel;
+    panel.set_background_color(background);
+    panel.set_border_color(border);
+    panel.set_border_width(border_width);
+
+    SytelRules rules;
+    rules.set_base_sytel(panel);
+    return rules;
+}
 }
 
-static int layout_main_impl(int, char**, char**) {
-    Window window("StardustUI Chat Demo", 1040, 680);
+static int layout_main_impl(int argc, char** argv, char**) {
+    const char* theme_to_load = "md3-light";
+    if (argc > 1 && argv != nullptr && argv[1] != nullptr && argv[1][0] != '\0') {
+        theme_to_load = argv[1];
+    }
+    stardustui::Theme::load_theme(theme_to_load);
+    const stardustui::Colors& colors = stardustui::Theme::colors();
+    stardustui::string window_title("StardustUI Chat Demo");
+    if (stardustui::Theme::name().length() > 0) {
+        window_title.append(" - ");
+        window_title.append(stardustui::Theme::name().c_str());
+    }
+    Window window(window_title.c_str(), 1040, 680);
 
     FlexLayout root(1000, 640);
     root.set_pos(20, 20);
     root.set_direction(FlexLayout::Row);
     root.set_gap(0);
+    root.set_style_rules(make_panel_rules(colors.background, colors.background, 0));
 
     FlexLayout sidebar(260, 0);
     sidebar.set_direction(FlexLayout::Column);
     sidebar.set_gap(12);
     sidebar.set_padding(18);
+    sidebar.set_style_rules(make_panel_rules(colors.surface_variant, colors.outline_variant));
 
-    Lable sidebar_title("Conversations", 24, 0x1A2433FF);
-    Lable sidebar_hint("Pinned teams and channels", 14, 0x657289FF);
+    Lable sidebar_title("Conversations", 24, colors.on_surface);
+    Lable sidebar_hint("Pinned teams and channels", 14, colors.on_surface_variant);
 
     Sytel contact_base;
-    contact_base.set_color(0x1A2433FF);
+    contact_base.set_color(colors.on_surface);
     contact_base.set_size(15);
-    contact_base.set_background_color(0xFFFFFFFF);
-    contact_base.set_border_color(0xD9E1EAFF);
+    contact_base.set_background_color(colors.surface);
+    contact_base.set_border_color(colors.outline_variant);
     contact_base.set_border_width(1);
     contact_base.set_padding(12);
 
     Sytel contact_hover;
-    contact_hover.set_background_color(0xDCEBFFFF);
-    contact_hover.set_border_color(0x8BB8F8FF);
+    contact_hover.set_background_color(colors.primary_container);
+    contact_hover.set_border_color(colors.primary);
 
     Sytel contact_click;
-    contact_click.set_background_color(0x2D6AE3FF);
-    contact_click.set_color(0xFFFFFFFF);
-    contact_click.set_border_color(0x2D6AE3FF);
+    contact_click.set_background_color(colors.primary);
+    contact_click.set_color(colors.on_primary);
+    contact_click.set_border_color(colors.primary);
 
     SytelRules contact_rules;
     contact_rules.set_base_sytel(contact_base);
@@ -150,27 +178,30 @@ static int layout_main_impl(int, char**, char**) {
     main_column.set_direction(FlexLayout::Column);
     main_column.set_gap(12);
     main_column.set_padding(12);
+    main_column.set_style_rules(make_panel_rules(colors.background, colors.background, 0));
 
     FlexLayout header_content(0, 84);
     header_content.set_direction(FlexLayout::Row);
     header_content.set_padding(20);
     header_content.set_align_items(FlexLayout::AlignCenter);
     header_content.set_justify_content(FlexLayout::JustifySpaceBetween);
+    header_content.set_style_rules(make_panel_rules(colors.surface, colors.outline_variant));
 
-    Lable room_title("Project Nebula", 28, 0x152033FF);
-    Lable room_meta("4 people online", 14, 0x68758BFF);
+    Lable room_title("Project Nebula", 28, colors.on_surface);
+    Lable room_meta("4 people online", 14, colors.on_surface_variant);
 
     Sytel action_base;
-    action_base.set_color(0x1A2433FF);
+    action_base.set_color(colors.on_secondary_container);
     action_base.set_size(14);
-    action_base.set_background_color(0xFFFFFFFF);
-    action_base.set_border_color(0xD9E1EAFF);
+    action_base.set_background_color(colors.secondary_container);
+    action_base.set_border_color(colors.secondary_container);
     action_base.set_border_width(1);
     action_base.set_padding(10);
 
     Sytel action_hover;
-    action_hover.set_background_color(0xF0F6FFFF);
-    action_hover.set_border_color(0x8BB8F8FF);
+    action_hover.set_background_color(colors.secondary);
+    action_hover.set_border_color(colors.secondary);
+    action_hover.set_color(colors.on_secondary);
 
     SytelRules action_rules;
     action_rules.set_base_sytel(action_base);
@@ -188,15 +219,15 @@ static int layout_main_impl(int, char**, char**) {
     header_content.addComponent(details_button, 0);
 
     Sytel history_base;
-    history_base.set_color(0x1F2937FF);
+    history_base.set_color(colors.on_surface);
     history_base.set_size(16);
-    history_base.set_background_color(0xFFFFFFFF);
-    history_base.set_border_color(0xD8DFE9FF);
+    history_base.set_background_color(colors.surface);
+    history_base.set_border_color(colors.outline_variant);
     history_base.set_border_width(1);
     history_base.set_padding(14);
 
     Sytel history_hover;
-    history_hover.set_border_color(0x8BB8F8FF);
+    history_hover.set_border_color(colors.primary);
 
     SytelRules history_rules;
     history_rules.set_base_sytel(history_base);
@@ -204,14 +235,10 @@ static int layout_main_impl(int, char**, char**) {
 
     TextBox history_box(0, 0, false, history_rules);
     stardustui::string history_text;
-    append_line(history_text, "Mina: Morning. The new layout build is on the CI machine.");
-    append_line(history_text, "Leo: I checked Linux and the flex sidebar is stable now.");
-    append_line(history_text, "Rin: Windows still needs a flicker pass, but SDL behaves better.");
-    append_line(history_text, "Mina: Good. Put the textbox scrollbar demo into the examples.");
-    append_line(history_text, "Leo: Done. It wraps long messages and keeps the cursor blinking on focus.");
-    append_line(history_text, "Rin: Nice. Next step is polishing the message composer spacing.");
-    append_line(history_text, "Mina: Keep this chat window as the flex showcase.");
-    append_line(history_text, "Leo: Sending a few longer lines here so the history box has enough content to scroll inside the conversation panel without needing any extra mock data.");
+    append_line(history_text, "Mina: Build is ready. 中文测试");
+    append_line(history_text, "Leo: Linux layout is stable.");
+    append_line(history_text, "Rin: Windows needs one more pass.");
+    append_line(history_text, "Mina: Keep this as the flex demo.");
     history_box.set_text(history_text);
     g_history_box = &history_box;
 
@@ -219,14 +246,15 @@ static int layout_main_impl(int, char**, char**) {
     composer.set_direction(FlexLayout::Column);
     composer.set_gap(12);
     composer.set_padding(16);
+    composer.set_style_rules(make_panel_rules(colors.surface, colors.outline_variant));
 
-    Lable composer_hint("Message", 14, 0x68758BFF);
+    Lable composer_hint("Message", 14, colors.on_surface_variant);
 
     Sytel input_base = history_base;
-    input_base.set_background_color(0xFCFDFFFF);
+    input_base.set_background_color(colors.background);
 
     Sytel input_click;
-    input_click.set_border_color(0x2D6AE3FF);
+    input_click.set_border_color(colors.primary);
 
     SytelRules input_rules;
     input_rules.set_base_sytel(input_base);
@@ -237,26 +265,29 @@ static int layout_main_impl(int, char**, char**) {
     composer_row.set_direction(FlexLayout::Row);
     composer_row.set_gap(12);
     composer_row.set_align_items(FlexLayout::AlignStretch);
+    composer_row.set_style_rules(make_panel_rules(colors.surface, colors.surface, 0));
 
     TextBox input_box(0, 92, true, input_rules);
     input_box.set_text("");
     g_input_box = &input_box;
 
     Sytel send_base;
-    send_base.set_color(0xFFFFFFFF);
+    send_base.set_color(colors.on_primary);
     send_base.set_size(16);
-    send_base.set_background_color(0x2D6AE3FF);
-    send_base.set_border_color(0x2D6AE3FF);
+    send_base.set_background_color(colors.primary);
+    send_base.set_border_color(colors.primary);
     send_base.set_border_width(1);
     send_base.set_padding(12);
 
     Sytel send_hover;
-    send_hover.set_background_color(0x4A84F0FF);
-    send_hover.set_border_color(0x4A84F0FF);
+    send_hover.set_background_color(colors.secondary);
+    send_hover.set_border_color(colors.secondary);
+    send_hover.set_color(colors.on_secondary);
 
     Sytel send_click;
-    send_click.set_background_color(0x1C54C3FF);
-    send_click.set_border_color(0x1C54C3FF);
+    send_click.set_background_color(colors.tertiary);
+    send_click.set_border_color(colors.tertiary);
+    send_click.set_color(colors.on_tertiary);
 
     SytelRules send_rules;
     send_rules.set_base_sytel(send_base);
@@ -266,7 +297,7 @@ static int layout_main_impl(int, char**, char**) {
     Button send_button("Send", 120, 92, send_rules);
     send_button.callback(on_send_click);
 
-    Lable status_label("Flex chat demo ready", 13, 0x68758BFF);
+    Lable status_label("Flex chat demo ready", 13, colors.on_surface_variant);
     g_status_label = &status_label;
 
     composer_row.addComponent(input_box, 1);

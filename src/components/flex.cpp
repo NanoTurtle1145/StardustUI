@@ -25,6 +25,38 @@ FlexLayout::~FlexLayout() = default;
 
 void FlexLayout::draw(unsigned long long handle) {
     this->perform_layout();
+
+    const Sytel style = this->resolve_style();
+    const bool has_background = style.has_background_color();
+    const bool has_border = style.has_border_width() && style.has_border_color() && style.get_border_width(0) > 0;
+    const unsigned int border_width = has_border ? style.get_border_width(0) : 0;
+    const unsigned int border_color = has_border ? style.get_border_color(0) : 0;
+    const unsigned int background_color = has_background ? style.get_background_color(0) : 0;
+
+    if (has_border && this->get_width() > 0 && this->get_height() > 0) {
+        draw_rect(handle,
+                  static_cast<int>(this->x),
+                  static_cast<int>(this->y),
+                  this->get_width(),
+                  this->get_height(),
+                  border_color);
+
+        const int inner_x = static_cast<int>(this->x) + static_cast<int>(border_width);
+        const int inner_y = static_cast<int>(this->y) + static_cast<int>(border_width);
+        const int inner_width = this->get_width() - static_cast<int>(border_width * 2);
+        const int inner_height = this->get_height() - static_cast<int>(border_width * 2);
+        if (has_background && inner_width > 0 && inner_height > 0) {
+            draw_rect(handle, inner_x, inner_y, inner_width, inner_height, background_color);
+        }
+    } else if (has_background && this->get_width() > 0 && this->get_height() > 0) {
+        draw_rect(handle,
+                  static_cast<int>(this->x),
+                  static_cast<int>(this->y),
+                  this->get_width(),
+                  this->get_height(),
+                  background_color);
+    }
+
     for (int index = 0; index < this->items.size(); ++index) {
         if (this->items[index].component != nullptr) {
             this->items[index].component->draw(handle);

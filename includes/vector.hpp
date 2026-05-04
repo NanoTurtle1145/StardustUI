@@ -86,6 +86,13 @@ public:
 		this->count = 0;
 	}
 
+	void release_storage() {
+		delete[] this->items;
+		this->items = nullptr;
+		this->count = 0;
+		this->storage = 0;
+	}
+
 	T& operator[](int index) {
 		return this->items[index];
 	}
