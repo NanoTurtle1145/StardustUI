@@ -1,14 +1,6 @@
 #include "../../includes/components/canvas.hpp"
 #include "../../settings.hpp"
-#ifdef  XJ380
-#include "../../platforms/xj380.hpp"
-#endif
-#ifdef STARDUSTUI_WINDOWS
-#include "../../platforms/windows.hpp"
-#endif
-#ifdef STARDUSTUI_LINUX
-#include "../../platforms/linux.hpp"
-#endif
+#include "../../platforms/platform.hpp"
 
 Canvas::Canvas(int width, int height)
     : commands(),
@@ -36,6 +28,7 @@ void Canvas::draw(unsigned long long handle) {
 }
 
 void Canvas::update() {
+    base_component::update();
     if (this->refresh_callback == nullptr) {
         return;
     }

@@ -25,6 +25,38 @@ FlexLayout::~FlexLayout() = default;
 
 void FlexLayout::draw(unsigned long long handle) {
     this->perform_layout();
+
+    const Sytel style = this->resolve_style();
+    const bool has_background = style.has_background_color();
+    const bool has_border = style.has_border_width() && style.has_border_color() && style.get_border_width(0) > 0;
+    const unsigned int border_width = has_border ? style.get_border_width(0) : 0;
+    const unsigned int border_color = has_border ? style.get_border_color(0) : 0;
+    const unsigned int background_color = has_background ? style.get_background_color(0) : 0;
+
+    if (has_border && this->get_width() > 0 && this->get_height() > 0) {
+        draw_rect(handle,
+                  static_cast<int>(this->x),
+                  static_cast<int>(this->y),
+                  this->get_width(),
+                  this->get_height(),
+                  border_color);
+
+        const int inner_x = static_cast<int>(this->x) + static_cast<int>(border_width);
+        const int inner_y = static_cast<int>(this->y) + static_cast<int>(border_width);
+        const int inner_width = this->get_width() - static_cast<int>(border_width * 2);
+        const int inner_height = this->get_height() - static_cast<int>(border_width * 2);
+        if (has_background && inner_width > 0 && inner_height > 0) {
+            draw_rect(handle, inner_x, inner_y, inner_width, inner_height, background_color);
+        }
+    } else if (has_background && this->get_width() > 0 && this->get_height() > 0) {
+        draw_rect(handle,
+                  static_cast<int>(this->x),
+                  static_cast<int>(this->y),
+                  this->get_width(),
+                  this->get_height(),
+                  background_color);
+    }
+
     for (int index = 0; index < this->items.size(); ++index) {
         if (this->items[index].component != nullptr) {
             this->items[index].component->draw(handle);
@@ -33,6 +65,7 @@ void FlexLayout::draw(unsigned long long handle) {
 }
 
 void FlexLayout::update() {
+    base_component::update();
     for (int index = 0; index < this->items.size(); ++index) {
         base_component* component = this->items[index].component;
         if (component == nullptr) {
@@ -62,6 +95,60 @@ void FlexLayout::set_bounds(int x, int y, int width, int height) {
     base_component::set_bounds(x, y, width, height);
     this->layout_dirty = true;
     this->request_redraw();
+}
+
+bool FlexLayout::handle_pointer_move(int x, int y) {
+    this->perform_layout();
+
+    bool changed = base_component::handle_pointer_move(x, y);
+    for (int index = 0; index < this->items.size(); ++index) {
+        base_component* component = this->items[index].component;
+        if (component == nullptr) {
+            continue;
+        }
+
+        if (component->handle_pointer_move(x, y)) {
+            changed = true;
+        }
+    }
+
+    return changed;
+}
+
+bool FlexLayout::handle_left_button(bool pressed, int x, int y) {
+    this->perform_layout();
+
+    bool changed = base_component::handle_left_button(pressed, x, y);
+    for (int index = 0; index < this->items.size(); ++index) {
+        base_component* component = this->items[index].component;
+        if (component == nullptr) {
+            continue;
+        }
+
+        if (component->handle_left_button(pressed, x, y)) {
+            changed = true;
+        }
+    }
+
+    return changed;
+}
+
+bool FlexLayout::handle_char_input(char ch, bool special) {
+    this->perform_layout();
+
+    bool changed = false;
+    for (int index = 0; index < this->items.size(); ++index) {
+        base_component* component = this->items[index].component;
+        if (component == nullptr) {
+            continue;
+        }
+
+        if (component->handle_char_input(ch, special)) {
+            changed = true;
+        }
+    }
+
+    return changed;
 }
 
 void FlexLayout::set_direction(Direction direction) {

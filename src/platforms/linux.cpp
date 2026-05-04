@@ -1,11 +1,128 @@
-#include "../../platforms/linux.hpp"
+#include "../../platforms/platform.hpp"
+#include "../../includes/file.hpp"
+#include "../../includes/text/text_renderer.hpp"
 #include "../../includes/vector.hpp"
 
 #include <SDL.h>
-#include <SDL_ttf.h>
 #include <cstdio>
 #include <cstdlib>
 #include <time.h>
+
+namespace stardustui {
+
+// File platform adapter used by stardustui::File.
+
+bool file_exists_platform(const char* path)
+{
+    FILE* file = fopen(path, "rb");
+    if (file == nullptr) {
+        return false;
+    }
+
+    fclose(file);
+    return true;
+}
+
+bool file_remove_platform(const char* path)
+{
+    return ::remove(path) == 0;
+}
+
+bool file_read_bytes_platform(const char* path, File::byte*& out_data, int& out_size)
+{
+    out_data = nullptr;
+    out_size = 0;
+
+    FILE* file = fopen(path, "rb");
+    if (file == nullptr) {
+        return false;
+    }
+
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fclose(file);
+        return false;
+    }
+
+    long length = ftell(file);
+    if (length < 0 || length > 0x7fffffffL) {
+        fclose(file);
+        return false;
+    }
+
+    if (fseek(file, 0, SEEK_SET) != 0) {
+        fclose(file);
+        return false;
+    }
+
+    if (length == 0) {
+        fclose(file);
+        return true;
+    }
+
+    out_data = new File::byte[(int)length];
+    if (out_data == nullptr) {
+        fclose(file);
+        return false;
+    }
+
+    const unsigned int read_count = fread(out_data, 1, (unsigned int)length, file);
+    fclose(file);
+
+    if (read_count != (unsigned int)length) {
+        delete[] out_data;
+        out_data = nullptr;
+        return false;
+    }
+
+    out_size = (int)length;
+    return true;
+}
+
+bool file_write_bytes_platform(const char* path, const File::byte* data, int size)
+{
+    FILE* file = fopen(path, "wb");
+    if (file == nullptr) {
+        return false;
+    }
+
+    if (size == 0) {
+        fclose(file);
+        return true;
+    }
+
+    const unsigned int written = fwrite(data, 1, (unsigned int)size, file);
+    fclose(file);
+    return written == (unsigned int)size;
+}
+
+bool file_append_text_platform(const char* path, const char* text, int length)
+{
+    FILE* file = fopen(path, "ab");
+    if (file == nullptr) {
+        return false;
+    }
+
+    const unsigned int written = fwrite(text, 1, (unsigned int)length, file);
+    fclose(file);
+    return written == (unsigned int)length;
+}
+
+bool set_text_font_path(const stardustui::string& path)
+{
+    return Font::set_default_font_path(path);
+}
+
+bool set_text_font_memory(const stardustui::File::byte* data, int size)
+{
+    return Font::set_default_font_memory(data, size);
+}
+
+void clear_text_font()
+{
+    Font::clear_default_font();
+}
+
+}
 
 namespace {
 struct DrawCommand {
@@ -27,34 +144,29 @@ struct DrawCommand {
     DrawCommand() : type(Pixel), x(0), y(0), width(0), height(0), color(0), size(0), text() {}
 };
 
-struct FontEntry {
-    unsigned int size;
-    TTF_Font *font;
-
-    FontEntry() : size(0), font(nullptr) {}
-};
-
 struct WindowState {
     SDL_Window *window;
     SDL_Renderer *renderer;
     Uint32 window_id;
     window_message_proc message_proc;
     stardustui::vector<DrawCommand> commands;
-    stardustui::vector<FontEntry> fonts;
 
     WindowState()
         : window(nullptr),
           renderer(nullptr),
           window_id(0),
           message_proc(nullptr),
-          commands(),
-          fonts() {}
+          commands() {}
 };
 
 stardustui::vector<WindowState*> g_windows;
 char g_last_error[256];
 bool g_sdl_ready = false;
-bool g_ttf_ready = false;
+
+int max_int(int a, int b)
+{
+    return a > b ? a : b;
+}
 
 void set_last_error(const char *message)
 {
@@ -137,119 +249,9 @@ bool ensure_sdl()
         g_sdl_ready = true;
     }
 
-    if (!g_ttf_ready) {
-        if (TTF_Init() != 0) {
-            set_last_error(TTF_GetError());
-            return false;
-        }
-        g_ttf_ready = true;
-    }
+    SDL_StartTextInput();
 
     return true;
-}
-
-const char *font_paths[] = {
-    "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf",
-    "/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf",
-    "/usr/share/fonts/TTF/JetBrainsMonoNLNerdFont-Regular.ttf",
-    "/usr/share/fonts/TTF/Hack-Regular.ttf",
-    "/usr/share/fonts/TTF/AgaveNerdFont-Regular.ttf",
-    "/usr/share/fonts/TTF/DejaVuSans.ttf",
-    "/usr/share/fonts/TTF/LiberationSans-Regular.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"
-};
-
-constexpr unsigned int kFontDpi = 96;
-constexpr unsigned int kPointsPerInch = 72;
-constexpr unsigned int kLinuxFontVisualScaleNum = 5;
-constexpr unsigned int kLinuxFontVisualScaleDen = 4;
-
-int abs_int(int value)
-{
-    return value < 0 ? -value : value;
-}
-
-TTF_Font *open_font(unsigned int size)
-{
-    const int point_size = static_cast<int>(size == 0 ? 12 : size);
-    const int base_pixel_height = static_cast<int>((point_size * static_cast<int>(kFontDpi) + static_cast<int>(kPointsPerInch / 2)) /
-                                                   static_cast<int>(kPointsPerInch));
-    const int target_pixel_height =
-        static_cast<int>((base_pixel_height * static_cast<int>(kLinuxFontVisualScaleNum) +
-                          static_cast<int>(kLinuxFontVisualScaleDen / 2)) /
-                         static_cast<int>(kLinuxFontVisualScaleDen));
-
-    for (unsigned int index = 0; index < sizeof(font_paths) / sizeof(font_paths[0]); ++index) {
-        int candidate_point_size = point_size;
-        TTF_Font *best_font = nullptr;
-        int best_diff = 1 << 30;
-
-        for (int iteration = 0; iteration < 5; ++iteration) {
-            if (candidate_point_size <= 0) {
-                candidate_point_size = 1;
-            }
-
-            TTF_Font *font = TTF_OpenFontDPI(font_paths[index], candidate_point_size, kFontDpi, kFontDpi);
-            if (font == nullptr) {
-                break;
-            }
-
-            const int actual_height = TTF_FontHeight(font);
-            const int diff = abs_int(actual_height - target_pixel_height);
-            if (diff < best_diff) {
-                if (best_font != nullptr) {
-                    TTF_CloseFont(best_font);
-                }
-                best_font = font;
-                best_diff = diff;
-            } else {
-                TTF_CloseFont(font);
-            }
-
-            if (diff <= 1 || actual_height <= 0) {
-                break;
-            }
-
-            int next_point_size = candidate_point_size * target_pixel_height / actual_height;
-            if (next_point_size == candidate_point_size) {
-                next_point_size += (actual_height < target_pixel_height) ? 1 : -1;
-            }
-            candidate_point_size = next_point_size;
-        }
-
-        if (best_font != nullptr) {
-            set_last_error(nullptr);
-            return best_font;
-        }
-    }
-
-    set_last_error(TTF_GetError());
-    return nullptr;
-}
-
-FontEntry *load_font(WindowState *state, unsigned int size)
-{
-    if (state == nullptr || !ensure_sdl()) {
-        return nullptr;
-    }
-
-    const unsigned int pixel_size = size == 0 ? 12 : size;
-    for (int index = 0; index < state->fonts.size(); ++index) {
-        if (state->fonts[index].size == pixel_size) {
-            return &state->fonts[index];
-        }
-    }
-
-    FontEntry entry;
-    entry.size = pixel_size;
-    entry.font = open_font(pixel_size);
-    state->fonts.push_back(entry);
-
-    if (state->fonts.size() == 0) {
-        return nullptr;
-    }
-    return &state->fonts[state->fonts.size() - 1];
 }
 
 void draw_command(WindowState *state, const DrawCommand& command)
@@ -277,29 +279,59 @@ void draw_command(WindowState *state, const DrawCommand& command)
         return;
     }
 
-    FontEntry *font_entry = load_font(state, command.size);
-    if (font_entry == nullptr || font_entry->font == nullptr) {
-        log_serial("stardustui: SDL_ttf failed to load font for draw_text\n");
+    stardustui::text::TextBitmap bitmap;
+    if (!stardustui::text::rasterize_text(command.text, command.color, command.size == 0 ? 12 : command.size, bitmap)) {
+        return;
+    }
+    if (bitmap.width <= 0 || bitmap.height <= 0) {
         return;
     }
 
-    SDL_Surface *surface = TTF_RenderUTF8_Blended(font_entry->font, command.text.c_str(), color);
-    if (surface == nullptr) {
+    SDL_Texture* texture = SDL_CreateTexture(state->renderer,
+                                             SDL_PIXELFORMAT_RGBA32,
+                                             SDL_TEXTUREACCESS_STATIC,
+                                             bitmap.width,
+                                             bitmap.height);
+    if (texture == nullptr) {
         return;
     }
 
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(state->renderer, surface);
-    if (texture != nullptr) {
-        SDL_Rect destination{};
-        destination.x = command.x;
-        destination.y = command.y;
-        destination.w = surface->w;
-        destination.h = surface->h;
-        SDL_RenderCopy(state->renderer, texture, nullptr, &destination);
+    stardustui::vector<unsigned char> upload_pixels;
+    const int total_pixels = bitmap.width * bitmap.height;
+    if (!upload_pixels.reserve(total_pixels * 4)) {
         SDL_DestroyTexture(texture);
+        return;
     }
 
-    SDL_FreeSurface(surface);
+    for (int index = 0; index < total_pixels; ++index) {
+        const unsigned int pixel = bitmap.pixels[index];
+        const unsigned char red = static_cast<unsigned char>((pixel >> 24) & 0xFFu);
+        const unsigned char green = static_cast<unsigned char>((pixel >> 16) & 0xFFu);
+        const unsigned char blue = static_cast<unsigned char>((pixel >> 8) & 0xFFu);
+        const unsigned char alpha = static_cast<unsigned char>(pixel & 0xFFu);
+
+        if (!upload_pixels.push_back(red) ||
+            !upload_pixels.push_back(green) ||
+            !upload_pixels.push_back(blue) ||
+            !upload_pixels.push_back(alpha)) {
+            SDL_DestroyTexture(texture);
+            return;
+        }
+    }
+
+    if (SDL_UpdateTexture(texture, nullptr, upload_pixels.at(0), bitmap.width * 4) != 0) {
+        SDL_DestroyTexture(texture);
+        return;
+    }
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+    SDL_Rect destination_rect{};
+    destination_rect.x = command.x;
+    destination_rect.y = command.y;
+    destination_rect.w = bitmap.width;
+    destination_rect.h = bitmap.height;
+    SDL_RenderCopy(state->renderer, texture, nullptr, &destination_rect);
+    SDL_DestroyTexture(texture);
 }
 
 void redraw(WindowState *state)
@@ -327,6 +359,36 @@ void dispatch_mouse_move(WindowState *state, const SDL_MouseMotionEvent& motion)
     state->message_proc(kWindowMessageMove,
                         static_cast<unsigned long long>(motion.x),
                         static_cast<unsigned long long>(motion.y));
+}
+
+void dispatch_mouse_button(WindowState *state, bool pressed, const SDL_MouseButtonEvent& button)
+{
+    if (state == nullptr || state->message_proc == nullptr || button.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    state->message_proc(pressed ? kWindowMessageLeftButtonDown : kWindowMessageLeftButtonUp,
+                        static_cast<unsigned long long>(button.x),
+                        static_cast<unsigned long long>(button.y));
+}
+
+void apply_window_outer_size(WindowState *state, int outer_width, int outer_height)
+{
+    if (state == nullptr || state->window == nullptr) {
+        return;
+    }
+
+    int top = 0;
+    int left = 0;
+    int bottom = 0;
+    int right = 0;
+    if (SDL_GetWindowBordersSize(state->window, &top, &left, &bottom, &right) != 0) {
+        return;
+    }
+
+    const int client_width = max_int(1, outer_width - left - right);
+    const int client_height = max_int(1, outer_height - top - bottom);
+    SDL_SetWindowSize(state->window, client_width, client_height);
 }
 }
 
@@ -359,6 +421,7 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
         return false;
     }
 
+    apply_window_outer_size(state, width, height);
     state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (state->renderer == nullptr) {
         state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
@@ -435,6 +498,12 @@ void pump_window_events()
         Uint32 window_id = 0;
         if (event.type == SDL_MOUSEMOTION) {
             window_id = event.motion.windowID;
+        } else if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
+            window_id = event.button.windowID;
+        } else if (event.type == SDL_TEXTINPUT) {
+            window_id = event.text.windowID;
+        } else if (event.type == SDL_KEYDOWN) {
+            window_id = event.key.windowID;
         } else if (event.type == SDL_WINDOWEVENT) {
             window_id = event.window.windowID;
         }
@@ -446,6 +515,21 @@ void pump_window_events()
 
         if (event.type == SDL_MOUSEMOTION) {
             dispatch_mouse_move(state, event.motion);
+        } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+            dispatch_mouse_button(state, true, event.button);
+        } else if (event.type == SDL_MOUSEBUTTONUP) {
+            dispatch_mouse_button(state, false, event.button);
+        } else if (event.type == SDL_TEXTINPUT && state->message_proc != nullptr) {
+            const char* text = event.text.text;
+            for (int index = 0; text[index] != '\0'; ++index) {
+                state->message_proc(kWindowMessageChar, 0, static_cast<unsigned long long>(static_cast<unsigned char>(text[index])));
+            }
+        } else if (event.type == SDL_KEYDOWN && state->message_proc != nullptr) {
+            if (event.key.keysym.sym == SDLK_BACKSPACE) {
+                state->message_proc(kWindowMessageSpecialChar, 0, static_cast<unsigned long long>('\b'));
+            } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER) {
+                state->message_proc(kWindowMessageSpecialChar, 0, static_cast<unsigned long long>('\n'));
+            }
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED) {
             redraw(state);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
@@ -469,12 +553,6 @@ bool delete_window(unsigned long long handle)
 
     remove_state(state);
 
-    for (int index = 0; index < state->fonts.size(); ++index) {
-        if (state->fonts[index].font != nullptr) {
-            TTF_CloseFont(state->fonts[index].font);
-        }
-    }
-
     if (state->renderer != nullptr) {
         SDL_DestroyRenderer(state->renderer);
     }
@@ -493,10 +571,7 @@ bool delete_window(unsigned long long handle)
     }
 
     if (!any_window) {
-        if (g_ttf_ready) {
-            TTF_Quit();
-            g_ttf_ready = false;
-        }
+        SDL_StopTextInput();
         if (g_sdl_ready) {
             SDL_Quit();
             g_sdl_ready = false;
@@ -563,23 +638,35 @@ void draw_text(unsigned long long handle, int x, int y, unsigned int color, unsi
     state->commands.push_back(command);
 }
 
+void draw_text_on_solid_background(unsigned long long handle,
+                                   int x,
+                                   int y,
+                                   unsigned int color,
+                                   unsigned int size,
+                                   unsigned int,
+                                   const stardustui::string& text)
+{
+    draw_text(handle, x, y, color, size, text);
+}
+
 unsigned int calc_text_width(const stardustui::string& text, unsigned int size)
 {
-    if (!ensure_sdl()) {
+    unsigned int width = 0;
+    unsigned int height = 0;
+    if (!stardustui::text::measure_text(text, size == 0 ? 12 : size, width, height)) {
         return static_cast<unsigned int>(text.length() * (size == 0 ? 12 : size));
     }
+    return width;
+}
 
-    TTF_Font *font = open_font(size == 0 ? 12 : size);
-    if (font == nullptr) {
-        log_serial("stardustui: SDL_ttf failed to load font for calc_text_width\n");
-        return static_cast<unsigned int>(text.length() * (size == 0 ? 12 : size));
+unsigned int calc_text_height(const stardustui::string& text, unsigned int size)
+{
+    unsigned int width = 0;
+    unsigned int height = 0;
+    if (!stardustui::text::measure_text(text, size == 0 ? 12 : size, width, height)) {
+        return size == 0 ? 12U : size;
     }
-
-    int width = 0;
-    int height = 0;
-    TTF_SizeUTF8(font, text.c_str(), &width, &height);
-    TTF_CloseFont(font);
-    return static_cast<unsigned int>(width);
+    return height;
 }
 
 void sleep_ms(unsigned long long ms)
