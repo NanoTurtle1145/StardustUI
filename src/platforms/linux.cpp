@@ -423,7 +423,7 @@ void apply_window_outer_size(WindowState *state, int outer_width, int outer_heig
 }
 }
 
-bool create_window(char *title, int width, int height, unsigned long long *handle)
+bool create_window(char *title, int width, int height, bool resizable, unsigned long long *handle)
 {
     if (title == nullptr || handle == nullptr || width <= 0 || height <= 0) {
         set_last_error("invalid window title, size, or handle output");
@@ -445,7 +445,7 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
                                      SDL_WINDOWPOS_CENTERED,
                                      width,
                                      height,
-                                     SDL_WINDOW_SHOWN);
+                                     SDL_WINDOW_SHOWN | (resizable ? SDL_WINDOW_RESIZABLE : 0));
     if (state->window == nullptr) {
         set_last_error(SDL_GetError());
         delete state;
@@ -563,6 +563,13 @@ void pump_window_events()
             } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER) {
                 state->message_proc(kWindowMessageSpecialChar, 0, static_cast<unsigned long long>('\n'));
             }
+        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+            if (state->message_proc != nullptr) {
+                state->message_proc(kWindowMessageResize,
+                                    static_cast<unsigned long long>(event.window.data1),
+                                    static_cast<unsigned long long>(event.window.data2));
+            }
+            redraw(state);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED) {
             redraw(state);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
@@ -575,6 +582,17 @@ bool is_window_open(unsigned long long handle)
 {
     WindowState *state = to_state(handle);
     return state != nullptr && has_state(state);
+}
+
+bool set_window_resizable(unsigned long long handle, bool resizable)
+{
+    WindowState *state = to_state(handle);
+    if (state == nullptr || state->window == nullptr) {
+        return false;
+    }
+
+    SDL_SetWindowResizable(state->window, resizable ? SDL_TRUE : SDL_FALSE);
+    return true;
 }
 
 bool delete_window(unsigned long long handle)

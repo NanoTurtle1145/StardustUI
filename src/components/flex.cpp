@@ -8,6 +8,10 @@ int clamp_non_negative(int value) {
 int min_int(int a, int b) {
     return a < b ? a : b;
 }
+
+int max_int(int a, int b) {
+    return a > b ? a : b;
+}
 }
 
 FlexLayout::FlexLayout(int width, int height)
@@ -157,6 +161,17 @@ bool FlexLayout::handle_char_input(char ch, bool special) {
 
 void FlexLayout::set_direction(Direction direction) {
     this->direction = direction;
+    for (int index = 0; index < this->items.size(); ++index) {
+        if (this->items[index].component == nullptr) {
+            continue;
+        }
+        this->items[index].basis_main = direction == Row
+            ? this->items[index].component->get_preferred_width()
+            : this->items[index].component->get_preferred_height();
+        this->items[index].basis_cross = direction == Row
+            ? this->items[index].component->get_preferred_height()
+            : this->items[index].component->get_preferred_width();
+    }
     this->layout_dirty = true;
     this->request_redraw();
 }
@@ -197,6 +212,8 @@ void FlexLayout::addComponent(base_component* component, int flex_grow) {
     Item item;
     item.component = component;
     item.flex_grow = clamp_non_negative(flex_grow);
+    item.basis_main = this->direction == Row ? component->get_preferred_width() : component->get_preferred_height();
+    item.basis_cross = this->direction == Row ? component->get_preferred_height() : component->get_preferred_width();
     if (!this->items.push_back(item)) {
         return;
     }
@@ -234,7 +251,7 @@ void FlexLayout::perform_layout() {
             continue;
         }
 
-        preferred_total += this->direction == Row ? component->get_preferred_width() : component->get_preferred_height();
+        preferred_total += max_int(0, this->items[index].basis_main);
         total_grow += this->items[index].flex_grow;
         ++visible_count;
     }
@@ -245,7 +262,9 @@ void FlexLayout::perform_layout() {
     }
 
     int leftover = available_main - preferred_total;
+    int overflow = 0;
     if (leftover < 0) {
+        overflow = -leftover;
         leftover = 0;
     }
 
@@ -267,6 +286,8 @@ void FlexLayout::perform_layout() {
     int cursor = main_offset;
     int remaining_extra = leftover;
     int remaining_grow = total_grow;
+    int remaining_overflow = overflow;
+    int remaining_shrinkable = preferred_total;
 
     for (int index = 0; index < count; ++index) {
         base_component* component = this->items[index].component;
@@ -274,8 +295,8 @@ void FlexLayout::perform_layout() {
             continue;
         }
 
-        const int preferred_main = this->direction == Row ? component->get_preferred_width() : component->get_preferred_height();
-        const int preferred_cross = this->direction == Row ? component->get_preferred_height() : component->get_preferred_width();
+        const int preferred_main = max_int(0, this->items[index].basis_main);
+        const int preferred_cross = max_int(0, this->items[index].basis_cross);
 
         int component_main = preferred_main;
         if (this->items[index].flex_grow > 0 && remaining_grow > 0) {
@@ -284,6 +305,18 @@ void FlexLayout::perform_layout() {
             remaining_extra -= extra;
             remaining_grow -= this->items[index].flex_grow;
         }
+        if (remaining_overflow > 0 && remaining_shrinkable > 0) {
+            int shrink = (remaining_overflow * preferred_main) / remaining_shrinkable;
+            if (shrink > component_main) {
+                shrink = component_main;
+            }
+            component_main -= shrink;
+            remaining_overflow -= shrink;
+            remaining_shrinkable -= preferred_main;
+        } else {
+            remaining_shrinkable -= preferred_main;
+        }
+        component_main = clamp_non_negative(component_main);
 
         int component_cross = preferred_cross;
         if (this->align_items == AlignStretch || component_cross <= 0) {

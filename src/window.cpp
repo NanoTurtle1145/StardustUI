@@ -9,11 +9,12 @@ void dispatch_window_message(unsigned long long type, unsigned long long h_data,
 }
 }
 
-Window::Window(const char* title, int width, int height) {
+Window::Window(const char* title, int width, int height, bool resizable) {
 	this->title.assign(title);
 	this->width = width;
 	this->height = height;
 	this->handle = 0;
+	this->resizable = resizable;
 	this->needs_redraw = true;
 	this->background_needs_clear = true;
 }
@@ -32,7 +33,7 @@ Window::~Window() {
 void Window::show() {
 	static constexpr char kCreateWindowFailed[] = "Failed to create window";
 	append_debug_log("stardustui: Window::show enter\n");
-	if (!create_window(this->title.data(), this->width, this->height, &this->handle)) {
+	if (!create_window(this->title.data(), this->width, this->height, this->resizable, &this->handle)) {
 		append_debug_log("stardustui: create_window failed\n");
 		error(kCreateWindowFailed);
 		return;
@@ -93,11 +94,43 @@ const char* Window::getTitle() {
 	return this->title.c_str();
 }
 
+bool Window::isResizable() const {
+	return this->resizable;
+}
+
+void Window::setResizable(bool resizable) {
+	this->resizable = resizable;
+	if (this->handle != 0) {
+		set_window_resizable(this->handle, resizable);
+	}
+}
+
 void Window::error(const char* msg) {
 	print_error(msg);
 }
 
 void Window::handle_message(unsigned long long type, unsigned long long h_data, unsigned long long l_data) {
+	if (type == kWindowMessageResize) {
+		const int old_width = this->width;
+		const int old_height = this->height;
+		const int new_width = static_cast<int>(h_data);
+		const int new_height = static_cast<int>(l_data);
+		if (new_width > 0) {
+			this->width = new_width;
+		}
+		if (new_height > 0) {
+			this->height = new_height;
+		}
+		for (int i = 0; i < this->components.size(); ++i) {
+			if (this->components[i] != nullptr) {
+				this->components[i]->on_parent_resize(old_width, old_height, this->width, this->height);
+			}
+		}
+		this->background_needs_clear = true;
+		this->needs_redraw = true;
+		return;
+	}
+
 	bool changed = false;
 	for (int i = 0; i < this->components.size(); ++i) {
 		base_component* component = this->components[i];

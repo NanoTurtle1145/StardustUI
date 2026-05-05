@@ -542,7 +542,7 @@ void operator delete[](void *ptr, operator_size_t) noexcept
     free(ptr);
 }
 
-bool create_window(char *title, int width, int height, unsigned long long *handle)
+bool create_window(char *title, int width, int height, bool, unsigned long long *handle)
 {
     if (title == nullptr || handle == nullptr || width <= 0 || height <= 0) return false;
 
@@ -599,6 +599,11 @@ void pump_window_events()
 bool is_window_open(unsigned long long handle)
 {
     return handle != 0;
+}
+
+bool set_window_resizable(unsigned long long, bool)
+{
+    return false;
 }
 
 bool delete_window(unsigned long long handle)

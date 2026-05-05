@@ -11,8 +11,9 @@ constexpr unsigned long long kWindowMessageLeftButtonUp = 3;
 constexpr unsigned long long kWindowMessageLeftButtonClick = 4;
 constexpr unsigned long long kWindowMessageChar = 5;
 constexpr unsigned long long kWindowMessageSpecialChar = 6;
+constexpr unsigned long long kWindowMessageResize = 7;
 
-bool create_window(char *title, int width, int height, unsigned long long *handle);
+bool create_window(char *title, int width, int height, bool resizable, unsigned long long *handle);
 
 void print_error(const char *message);
 
@@ -27,6 +28,7 @@ void wait_window();
 void set_window_message_processor(unsigned long long handle, window_message_proc proc);
 void pump_window_events();
 bool is_window_open(unsigned long long handle);
+bool set_window_resizable(unsigned long long handle, bool resizable);
 
 bool delete_window(unsigned long long handle);
 

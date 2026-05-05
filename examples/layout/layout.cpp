@@ -101,10 +101,14 @@ static int layout_main_impl(int argc, char** argv, char**) {
         window_title.append(" - ");
         window_title.append(stardustui::Theme::name().c_str());
     }
-    Window window(window_title.c_str(), 1040, 680);
+    Window window(window_title.c_str(), 1040, 680, true);
 
     FlexLayout root(1000, 640);
     root.set_pos(20, 20);
+    root.set_anchors(base_component::AnchorLeft |
+                     base_component::AnchorTop |
+                     base_component::AnchorRight |
+                     base_component::AnchorBottom);
     root.set_direction(FlexLayout::Row);
     root.set_gap(0);
     root.set_style_rules(make_panel_rules(colors.background, colors.background, 0));

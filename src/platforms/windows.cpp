@@ -971,6 +971,15 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         }
         return 0;
     }
+    case WM_SIZE: {
+        WindowState *state = find_state(hwnd);
+        if (state != nullptr && state->message_proc != nullptr) {
+            state->message_proc(kWindowMessageResize,
+                                static_cast<unsigned long long>(LOWORD(lparam)),
+                                static_cast<unsigned long long>(HIWORD(lparam)));
+        }
+        return 0;
+    }
     case WM_DESTROY:
         remove_state(hwnd);
         PostQuitMessage(0);
@@ -1000,7 +1009,7 @@ bool register_window_class()
 }
 }
 
-bool create_window(char *title, int width, int height, unsigned long long *handle)
+bool create_window(char *title, int width, int height, bool resizable, unsigned long long *handle)
 {
     if (title == nullptr || handle == nullptr || width <= 0 || height <= 0) {
         return false;
@@ -1013,7 +1022,7 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
     wchar_t wide_title[512];
     to_wide(title, wide_title, static_cast<int>(sizeof(wide_title) / sizeof(wide_title[0])));
 
-    DWORD style = WS_OVERLAPPEDWINDOW;
+    DWORD style = resizable ? WS_OVERLAPPEDWINDOW : (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX);
     RECT rect{0, 0, width, height};
     AdjustWindowRect(&rect, style, FALSE);
 
@@ -1116,6 +1125,33 @@ bool delete_window(unsigned long long handle)
     }
 
     return DestroyWindow(window) != 0;
+}
+
+bool set_window_resizable(unsigned long long handle, bool resizable)
+{
+    HWND window = to_hwnd(handle);
+    if (window == nullptr || !IsWindow(window)) {
+        return false;
+    }
+
+    LONG_PTR style = GetWindowLongPtrW(window, GWL_STYLE);
+    if (resizable) {
+        style |= WS_THICKFRAME;
+        style |= WS_MAXIMIZEBOX;
+    } else {
+        style &= ~static_cast<LONG_PTR>(WS_THICKFRAME);
+        style &= ~static_cast<LONG_PTR>(WS_MAXIMIZEBOX);
+    }
+
+    SetWindowLongPtrW(window, GWL_STYLE, style);
+    SetWindowPos(window,
+                 nullptr,
+                 0,
+                 0,
+                 0,
+                 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
+    return true;
 }
 
 void draw_pixel(unsigned long long handle, int x, int y, unsigned int color)
