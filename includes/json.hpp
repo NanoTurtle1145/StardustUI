@@ -3,6 +3,9 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "../platforms/platform.hpp"
+#ifdef XJ380
+#include "../platforms/xj380/xapi/xposix/stdlib.h"
+#endif
 class JsonAllocator {
 public:
     static const bool kNeedFree = true;
@@ -17,7 +20,7 @@ public:
     void* Realloc(void* originalPtr, size_t originalSize, size_t newSize) {
         (void)originalSize;
         if (newSize == 0) {
-            std::free(originalPtr);
+            free(originalPtr);
             return NULL;
         }
         return realloc(originalPtr, newSize);  // 直接调用 realloc

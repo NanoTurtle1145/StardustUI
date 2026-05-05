@@ -7,14 +7,131 @@
 #endif
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <windows.h>
 #include <windowsx.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#pragma comment(lib, "ws2_32.lib")
 
 namespace {
 void clear_text_bitmap_cache();
 void clear_font_handle_cache();
 stardustui::string& registered_font_path_storage();
 void to_wide(const char *text, wchar_t *buffer, int buffer_size);
+
+bool ensure_winsock_started()
+{
+    static bool initialized = false;
+    static bool ready = false;
+    if (initialized) {
+        return ready;
+    }
+
+    initialized = true;
+    WSADATA data{};
+    ready = WSAStartup(MAKEWORD(2, 2), &data) == 0;
+    return ready;
+}
+
+int count_text_length_windows(const char* text)
+{
+    if (text == nullptr) {
+        return 0;
+    }
+
+    int length = 0;
+    while (text[length] != '\0') {
+        ++length;
+    }
+    return length;
+}
+
+bool append_windows_bytes(stardustui::vector<unsigned char>& target, const unsigned char* data, int size)
+{
+    if (size <= 0) {
+        return true;
+    }
+    if (data == nullptr) {
+        return false;
+    }
+
+    if (!target.reserve(target.size() + size)) {
+        return false;
+    }
+
+    for (int index = 0; index < size; ++index) {
+        if (!target.push_back(data[index])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool build_http_request_windows(const stardustui::HttpRequest& request, stardustui::string& out_request)
+{
+    out_request.assign("");
+    const char* method = request.method.length() > 0 ? request.method.c_str() : "GET";
+    const char* path = request.path.length() > 0 ? request.path.c_str() : "/";
+    const char* host = request.host.c_str();
+    const char* body = request.body.c_str();
+    const char* content_type = request.content_type.length() > 0 ? request.content_type.c_str() : "text/plain";
+    const char* extra_headers = request.extra_headers.c_str();
+    const int body_length = count_text_length_windows(body);
+
+    out_request.append(method);
+    out_request.append(" ");
+    out_request.append(path);
+    out_request.append(" HTTP/1.1\r\nHost: ");
+    out_request.append(host);
+    out_request.append("\r\nConnection: close\r\n");
+
+    if (extra_headers != nullptr && extra_headers[0] != '\0') {
+        out_request.append(extra_headers);
+        const int header_length = count_text_length_windows(extra_headers);
+        if (header_length < 2 ||
+            extra_headers[header_length - 2] != '\r' ||
+            extra_headers[header_length - 1] != '\n') {
+            out_request.append("\r\n");
+        }
+    }
+
+    if (body_length > 0) {
+        char content_length_buffer[32];
+        std::snprintf(content_length_buffer, sizeof(content_length_buffer), "%d", body_length);
+        out_request.append("Content-Type: ");
+        out_request.append(content_type);
+        out_request.append("\r\nContent-Length: ");
+        out_request.append(content_length_buffer);
+        out_request.append("\r\n");
+    }
+
+    out_request.append("\r\n");
+    if (body_length > 0) {
+        out_request.append(body);
+    }
+    return true;
+}
+
+bool read_all_windows_socket(SOCKET socket_handle, stardustui::vector<unsigned char>& out_response)
+{
+    unsigned char buffer[4096];
+    while (true) {
+        const int received = recv(socket_handle, reinterpret_cast<char*>(buffer), sizeof(buffer), 0);
+        if (received > 0) {
+            if (!append_windows_bytes(out_response, buffer, received)) {
+                return false;
+            }
+            continue;
+        }
+        if (received == 0) {
+            return true;
+        }
+        return false;
+    }
+}
 }
 
 namespace stardustui {
@@ -114,6 +231,180 @@ bool file_append_text_platform(const char* path, const char* text, int length)
     const unsigned int written = fwrite(text, 1, (unsigned int)length, file);
     fclose(file);
     return written == (unsigned int)length;
+}
+
+bool socket_connect_platform(const char* host, unsigned short port, long long& out_handle)
+{
+    out_handle = 0;
+    if (!ensure_winsock_started() || host == nullptr || host[0] == '\0' || port == 0) {
+        return false;
+    }
+
+    char port_buffer[16];
+    std::snprintf(port_buffer, sizeof(port_buffer), "%u", static_cast<unsigned int>(port));
+
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    addrinfo* result = nullptr;
+    if (getaddrinfo(host, port_buffer, &hints, &result) != 0 || result == nullptr) {
+        if (result != nullptr) {
+            freeaddrinfo(result);
+        }
+        return false;
+    }
+
+    bool connected = false;
+    for (addrinfo* current = result; current != nullptr; current = current->ai_next) {
+        if (current->ai_addr == nullptr) {
+            continue;
+        }
+
+        SOCKET socket_handle = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
+        if (socket_handle == INVALID_SOCKET) {
+            continue;
+        }
+
+        if (connect(socket_handle, current->ai_addr, static_cast<int>(current->ai_addrlen)) == 0) {
+            u_long non_blocking = 1;
+            ioctlsocket(socket_handle, FIONBIO, &non_blocking);
+            out_handle = static_cast<long long>(socket_handle);
+            connected = true;
+            break;
+        }
+
+        closesocket(socket_handle);
+    }
+
+    freeaddrinfo(result);
+    return connected;
+}
+
+bool socket_close_platform(long long handle)
+{
+    if (handle == 0) {
+        return true;
+    }
+    return closesocket(static_cast<SOCKET>(handle)) == 0;
+}
+
+bool socket_send_platform(long long handle, const unsigned char* data, int size, int& out_sent)
+{
+    out_sent = 0;
+    if (handle == 0 || size < 0 || (size > 0 && data == nullptr)) {
+        return false;
+    }
+    if (size == 0) {
+        return true;
+    }
+
+    const int sent = send(static_cast<SOCKET>(handle),
+                          reinterpret_cast<const char*>(data),
+                          size,
+                          0);
+    if (sent == SOCKET_ERROR) {
+        return false;
+    }
+
+    out_sent = sent;
+    return true;
+}
+
+bool socket_receive_platform(long long handle, unsigned char* buffer, int capacity, int& out_received)
+{
+    out_received = 0;
+    if (handle == 0 || capacity < 0 || (capacity > 0 && buffer == nullptr)) {
+        return false;
+    }
+    if (capacity == 0) {
+        return true;
+    }
+
+    WSAPOLLFD descriptor{};
+    descriptor.fd = static_cast<SOCKET>(handle);
+    descriptor.events = POLLRDNORM;
+    descriptor.revents = 0;
+    const int ready = WSAPoll(&descriptor, 1, 0);
+    if (ready == SOCKET_ERROR) {
+        return false;
+    }
+    if (ready == 0) {
+        return true;
+    }
+
+    if ((descriptor.revents & POLLNVAL) != 0) {
+        return false;
+    }
+    if ((descriptor.revents & (POLLRDNORM | POLLHUP)) == 0) {
+        return true;
+    }
+
+    const int received = recv(static_cast<SOCKET>(handle),
+                              reinterpret_cast<char*>(buffer),
+                              capacity,
+                              0);
+    if (received == SOCKET_ERROR) {
+        const int error_code = WSAGetLastError();
+        if (error_code == WSAEWOULDBLOCK) {
+            return true;
+        }
+        return false;
+    }
+
+    out_received = received;
+    return true;
+}
+
+bool http_request_platform(const stardustui::HttpRequest& request,
+                           stardustui::vector<unsigned char>& out_response,
+                           stardustui::string& out_error)
+{
+    out_response.clear();
+    out_error.assign("");
+
+    if (request.use_tls) {
+        out_error.assign("HTTPS is not implemented on Windows backend yet");
+        return false;
+    }
+
+    stardustui::string request_text;
+    if (!build_http_request_windows(request, request_text)) {
+        out_error.assign("Failed to build request");
+        return false;
+    }
+
+    long long handle = 0;
+    if (!socket_connect_platform(request.host.c_str(), request.port, handle)) {
+        out_error.assign("connect failed");
+        return false;
+    }
+
+    SOCKET socket_handle = static_cast<SOCKET>(handle);
+    u_long blocking = 0;
+    ioctlsocket(socket_handle, FIONBIO, &blocking);
+
+    int sent_total = 0;
+    const unsigned char* send_data = reinterpret_cast<const unsigned char*>(request_text.c_str());
+    const int send_size = request_text.length();
+    while (sent_total < send_size) {
+        int sent_now = 0;
+        if (!socket_send_platform(handle, send_data + sent_total, send_size - sent_total, sent_now) || sent_now <= 0) {
+            socket_close_platform(handle);
+            out_error.assign("send failed");
+            return false;
+        }
+        sent_total += sent_now;
+    }
+
+    const bool read_ok = read_all_windows_socket(socket_handle, out_response);
+    socket_close_platform(handle);
+    if (!read_ok) {
+        out_error.assign("recv failed");
+        return false;
+    }
+
+    return true;
 }
 
 bool set_text_font_path(const stardustui::string& path)

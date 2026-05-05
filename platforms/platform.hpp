@@ -1,6 +1,7 @@
 #pragma once
 #include "../includes/string.hpp"
 #include "../includes/file.hpp"
+#include "../includes/network.hpp"
 #include "../includes/text/font.hpp"
 
 using window_message_proc = void (*)(unsigned long long type, unsigned long long h_data, unsigned long long l_data);
@@ -69,5 +70,13 @@ bool file_remove_platform(const char* path);
 bool file_read_bytes_platform(const char* path, stardustui::File::byte*& out_data, int& out_size);
 bool file_write_bytes_platform(const char* path, const stardustui::File::byte* data, int size);
 bool file_append_text_platform(const char* path, const char* text, int length);
+
+bool socket_connect_platform(const char* host, unsigned short port, long long& out_handle);
+bool socket_close_platform(long long handle);
+bool socket_send_platform(long long handle, const unsigned char* data, int size, int& out_sent);
+bool socket_receive_platform(long long handle, unsigned char* buffer, int capacity, int& out_received);
+bool http_request_platform(const HttpRequest& request,
+                           vector<unsigned char>& out_response,
+                           string& out_error);
 
 }

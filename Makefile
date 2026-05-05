@@ -8,6 +8,7 @@ TARGET := $(BUILD_DIR)/libStardustUI.a
 
 SRC_FILES := \
 	src/file.cpp \
+	src/network.cpp \
 	src/sytel.cpp \
 	src/text/font.cpp \
 	src/text/text_renderer.cpp \
@@ -41,6 +42,9 @@ OBJ_FILES := $(patsubst src/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
 CPPFLAGS += -I. -I./includes
 CXXFLAGS ?= -O0 -g -std=gnu++17 -Wall -Wextra -Wpedantic -Wwrite-strings -fno-builtin
+ifeq ($(PLATFORM),xj380)
+CXXFLAGS += -ffreestanding -fno-exceptions -fno-rtti -fno-use-cxa-atexit -nostdinc
+endif
 ARFLAGS ?= rcs
 
 .PHONY: all clean
