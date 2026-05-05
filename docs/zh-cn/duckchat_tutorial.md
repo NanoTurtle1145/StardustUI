@@ -1,5 +1,7 @@
 # DuckChat 教程
 
+> 此程序由HGSpcae开发，非XingjiStudio产品，原Github链接 https://github.com/HGSpace-Studio/Duckchat 。  
+
 这篇文档演示如何基于 StardustUI 一步步做出一个和 `examples/duckchat` 类似的聊天软件。
 
 ## 目标
