@@ -388,6 +388,27 @@ int collect_faces(const TrueTypeFace** out_faces, int max_faces)
     }
 #else
     if (count == 0) {
+#if defined(STARDUSTUI_WINDOWS)
+        static const char* fallback_paths[] = {
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:\\Windows\\Fonts\\msyh.ttc",
+            "C:/Windows/Fonts/msyh.ttf",
+            "C:\\Windows\\Fonts\\msyh.ttf",
+            "C:/Windows/Fonts/msyhbd.ttc",
+            "C:\\Windows\\Fonts\\msyhbd.ttc",
+            "C:/Windows/Fonts/segoeui.ttf",
+            "C:\\Windows\\Fonts\\segoeui.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "C:/Windows/Fonts/simsun.ttc",
+            "C:\\Windows\\Fonts\\simsun.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:\\Windows\\Fonts\\simhei.ttf",
+            "/home/archzero/C++/XJ380/font/ttf/XJ380C.ttf",
+            "/home/archzero/C++/XJ380/font/ttf/XJ380F.ttf",
+            "/home/archzero/C++/XJ380/frameworks/StardustUI/fonts/xiaolai.ttf"
+        };
+#else
         static const char* fallback_paths[] = {
             "/home/archzero/C++/XJ380/font/ttf/XJ380C.ttf",
             "/home/archzero/C++/XJ380/font/ttf/XJ380F.ttf",
@@ -396,6 +417,7 @@ int collect_faces(const TrueTypeFace** out_faces, int max_faces)
             "/usr/share/fonts/TTF/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
         };
+#endif
 
         FaceCache& primary = face_cache();
         for (unsigned int index = 0; index < sizeof(fallback_paths) / sizeof(fallback_paths[0]); ++index) {

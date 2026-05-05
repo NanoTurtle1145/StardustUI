@@ -32,29 +32,33 @@ void FlexLayout::draw(unsigned long long handle) {
     const unsigned int border_width = has_border ? style.get_border_width(0) : 0;
     const unsigned int border_color = has_border ? style.get_border_color(0) : 0;
     const unsigned int background_color = has_background ? style.get_background_color(0) : 0;
+    const unsigned int radius = style.get_radius(0);
 
     if (has_border && this->get_width() > 0 && this->get_height() > 0) {
-        draw_rect(handle,
-                  static_cast<int>(this->x),
-                  static_cast<int>(this->y),
-                  this->get_width(),
-                  this->get_height(),
-                  border_color);
+        draw_round_rect(handle,
+                        static_cast<int>(this->x),
+                        static_cast<int>(this->y),
+                        this->get_width(),
+                        this->get_height(),
+                        radius,
+                        border_color);
 
         const int inner_x = static_cast<int>(this->x) + static_cast<int>(border_width);
         const int inner_y = static_cast<int>(this->y) + static_cast<int>(border_width);
         const int inner_width = this->get_width() - static_cast<int>(border_width * 2);
         const int inner_height = this->get_height() - static_cast<int>(border_width * 2);
         if (has_background && inner_width > 0 && inner_height > 0) {
-            draw_rect(handle, inner_x, inner_y, inner_width, inner_height, background_color);
+            const unsigned int inner_radius = radius > border_width ? radius - border_width : 0;
+            draw_round_rect(handle, inner_x, inner_y, inner_width, inner_height, inner_radius, background_color);
         }
     } else if (has_background && this->get_width() > 0 && this->get_height() > 0) {
-        draw_rect(handle,
-                  static_cast<int>(this->x),
-                  static_cast<int>(this->y),
-                  this->get_width(),
-                  this->get_height(),
-                  background_color);
+        draw_round_rect(handle,
+                        static_cast<int>(this->x),
+                        static_cast<int>(this->y),
+                        this->get_width(),
+                        this->get_height(),
+                        radius,
+                        background_color);
     }
 
     for (int index = 0; index < this->items.size(); ++index) {

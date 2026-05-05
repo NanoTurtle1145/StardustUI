@@ -43,19 +43,27 @@ ScrollBar::~ScrollBar() = default;
 
 void ScrollBar::draw(unsigned long long handle) {
     const Sytel style = this->resolve_style();
-    const unsigned int background_color = style.get_background_color(0xF1F1F1FF);
-    const unsigned int border_color = style.get_border_color(0xB7B7B7FF);
+    const unsigned int background_color = style.get_background_color(0xE7E0EBFF);
+    const unsigned int border_color = style.get_border_color(background_color);
     const unsigned int border_width = style.get_border_width(1);
-    const unsigned int thumb_color = style.get_color(0x8A8A8AFF);
+    const unsigned int thumb_color = style.get_color(0x6750A4FF);
+    const unsigned int radius = style.get_radius(static_cast<unsigned int>(this->get_width() / 2));
 
-    draw_rect(handle, static_cast<int>(this->x), static_cast<int>(this->y), this->get_width(), this->get_height(), border_color);
+    draw_round_rect(handle,
+                    static_cast<int>(this->x),
+                    static_cast<int>(this->y),
+                    this->get_width(),
+                    this->get_height(),
+                    radius,
+                    border_color);
 
     const int inner_x = static_cast<int>(this->x) + static_cast<int>(border_width);
     const int inner_y = static_cast<int>(this->y) + static_cast<int>(border_width);
     const int inner_width = this->get_width() - static_cast<int>(border_width * 2);
     const int inner_height = this->get_height() - static_cast<int>(border_width * 2);
     if (inner_width > 0 && inner_height > 0) {
-        draw_rect(handle, inner_x, inner_y, inner_width, inner_height, background_color);
+        const unsigned int inner_radius = radius > border_width ? radius - border_width : 0;
+        draw_round_rect(handle, inner_x, inner_y, inner_width, inner_height, inner_radius, background_color);
     }
 
     const int track_x = this->get_track_x();
@@ -63,12 +71,14 @@ void ScrollBar::draw(unsigned long long handle) {
     const int track_width = this->get_track_width();
     const int thumb_height = this->get_thumb_height();
     if (track_width > 0 && thumb_height > 0) {
-        draw_rect(handle,
-                  track_x,
-                  track_y + this->get_thumb_offset(),
-                  track_width,
-                  thumb_height,
-                  thumb_color);
+        const unsigned int thumb_radius = static_cast<unsigned int>(track_width / 2);
+        draw_round_rect(handle,
+                        track_x,
+                        track_y + this->get_thumb_offset(),
+                        track_width,
+                        thumb_height,
+                        thumb_radius,
+                        thumb_color);
     }
 }
 

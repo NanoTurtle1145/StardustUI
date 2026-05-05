@@ -23,22 +23,30 @@ Button::~Button() = default;
 
 void Button::draw(unsigned long long handle) {
     const Sytel style = this->resolve_style();
-    const unsigned int background_color = style.get_background_color(0xE6E6E6FF);
-    const unsigned int border_color = style.get_border_color(0x7A7A7AFF);
+    const unsigned int background_color = style.get_background_color(0x6750A4FF);
+    const unsigned int border_color = style.get_border_color(background_color);
     const unsigned int border_width = style.get_border_width(1);
-    const unsigned int text_color = style.get_color(0x000000FF);
+    const unsigned int text_color = style.get_color(0xFFFFFFFF);
     const unsigned int text_size = style.get_size(16);
     const unsigned int padding = style.get_padding(12);
+    const unsigned int radius = style.get_radius(20);
     const int text_height = static_cast<int>(calc_text_height(this->text, text_size));
 
-    draw_rect(handle, static_cast<int>(this->x), static_cast<int>(this->y), this->get_width(), this->get_height(), border_color);
+    draw_round_rect(handle,
+                    static_cast<int>(this->x),
+                    static_cast<int>(this->y),
+                    this->get_width(),
+                    this->get_height(),
+                    radius,
+                    border_color);
 
     const int inner_x = static_cast<int>(this->x) + static_cast<int>(border_width);
     const int inner_y = static_cast<int>(this->y) + static_cast<int>(border_width);
     const int inner_width = this->get_width() - static_cast<int>(border_width * 2);
     const int inner_height = this->get_height() - static_cast<int>(border_width * 2);
     if (inner_width > 0 && inner_height > 0) {
-        draw_rect(handle, inner_x, inner_y, inner_width, inner_height, background_color);
+        const unsigned int inner_radius = radius > border_width ? radius - border_width : 0;
+        draw_round_rect(handle, inner_x, inner_y, inner_width, inner_height, inner_radius, background_color);
     }
 
     const int text_width = static_cast<int>(calc_text_width(this->text, text_size));

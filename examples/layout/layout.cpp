@@ -75,11 +75,13 @@ void on_send_click() {
 
 SytelRules make_panel_rules(unsigned int background,
                             unsigned int border,
-                            unsigned int border_width = 1) {
+                            unsigned int border_width = 1,
+                            unsigned int radius = 20) {
     Sytel panel;
     panel.set_background_color(background);
     panel.set_border_color(border);
     panel.set_border_width(border_width);
+    panel.set_radius(radius);
 
     SytelRules rules;
     rules.set_base_sytel(panel);
@@ -123,6 +125,7 @@ static int layout_main_impl(int argc, char** argv, char**) {
     contact_base.set_border_color(colors.outline_variant);
     contact_base.set_border_width(1);
     contact_base.set_padding(12);
+    contact_base.set_radius(20);
 
     Sytel contact_hover;
     contact_hover.set_background_color(colors.primary_container);
@@ -197,6 +200,7 @@ static int layout_main_impl(int argc, char** argv, char**) {
     action_base.set_border_color(colors.secondary_container);
     action_base.set_border_width(1);
     action_base.set_padding(10);
+    action_base.set_radius(20);
 
     Sytel action_hover;
     action_hover.set_background_color(colors.secondary);
@@ -225,6 +229,7 @@ static int layout_main_impl(int argc, char** argv, char**) {
     history_base.set_border_color(colors.outline_variant);
     history_base.set_border_width(1);
     history_base.set_padding(14);
+    history_base.set_radius(16);
 
     Sytel history_hover;
     history_hover.set_border_color(colors.primary);
@@ -278,6 +283,7 @@ static int layout_main_impl(int argc, char** argv, char**) {
     send_base.set_border_color(colors.primary);
     send_base.set_border_width(1);
     send_base.set_padding(12);
+    send_base.set_radius(24);
 
     Sytel send_hover;
     send_hover.set_background_color(colors.secondary);

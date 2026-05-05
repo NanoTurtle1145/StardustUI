@@ -169,6 +169,51 @@ bool try_font_name_in_directory(const char* directory,
 
     return false;
 }
+
+#if defined(STARDUSTUI_WINDOWS)
+bool try_windows_font_directory(const char* root_directory,
+                                const char* name,
+                                stardustui::string& resolved)
+{
+    if (root_directory == nullptr || root_directory[0] == '\0') {
+        return false;
+    }
+
+    stardustui::string font_directory;
+    if (!join_path(font_directory, root_directory, "Fonts")) {
+        return false;
+    }
+
+    return try_font_name_in_directory(font_directory.c_str(), name, resolved);
+}
+
+bool try_windows_system_font(const char* name, stardustui::string& resolved)
+{
+    const char* windir = std::getenv("WINDIR");
+    if (try_windows_font_directory(windir, name, resolved)) {
+        return true;
+    }
+
+    const char* system_root = std::getenv("SystemRoot");
+    if (try_windows_font_directory(system_root, name, resolved)) {
+        return true;
+    }
+
+    static const char* kFallbackDirs[] = {
+        "C:/Windows",
+        "C:\\Windows",
+        "C:/WINNT"
+    };
+
+    for (unsigned int index = 0; index < sizeof(kFallbackDirs) / sizeof(kFallbackDirs[0]); ++index) {
+        if (try_windows_font_directory(kFallbackDirs[index], name, resolved)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
 }
 
 Font::Font()
@@ -444,6 +489,29 @@ stardustui::string Font::resolve_font_path(const stardustui::string& path_or_nam
             return resolved;
         }
     }
+
+#if defined(STARDUSTUI_WINDOWS)
+    if (try_windows_system_font(text, resolved)) {
+        return resolved;
+    }
+
+    static const char* kWindowsFallbackFonts[] = {
+        "msyh",
+        "msyhbd",
+        "Microsoft YaHei",
+        "segoeui",
+        "arialuni",
+        "arial",
+        "simsun",
+        "simhei"
+    };
+
+    for (unsigned int index = 0; index < sizeof(kWindowsFallbackFonts) / sizeof(kWindowsFallbackFonts[0]); ++index) {
+        if (try_windows_system_font(kWindowsFallbackFonts[index], resolved)) {
+            return resolved;
+        }
+    }
+#endif
 
     return stardustui::string();
 }
