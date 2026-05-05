@@ -189,19 +189,12 @@ bool should_cache_platform_text(const stardustui::string& text, int width, int h
     if (width <= 0 || height <= 0) {
         return false;
     }
-#ifdef XJ380
-    (void)text;
-    (void)width;
-    (void)height;
-    return false;
-#else
     if (text.length() > 64) {
         return false;
     }
     if (width * height > 8192) {
         return false;
     }
-#endif
     return true;
 }
 
@@ -269,6 +262,9 @@ CachedPlatformTextBitmap* cache_platform_text(const stardustui::string& text,
     }
 
     stardustui::vector<CachedPlatformTextBitmap>& cache = platform_text_cache();
+    if (cache.size() >= 64) {
+        clear_platform_text_cache();
+    }
     if (!cache.push_back(entry)) {
         return nullptr;
     }
@@ -628,6 +624,139 @@ void draw_rect(unsigned long long handle, int x, int y, int width, int height, u
                   static_cast<UINT32>(y + height - 1),
                   color,
                   true);
+}
+
+void draw_round_rect(unsigned long long handle,
+                     int x,
+                     int y,
+                     int width,
+                     int height,
+                     unsigned int radius,
+                     unsigned int color)
+{
+    int resolved_radius = static_cast<int>(radius);
+    const int max_radius_x = width / 2;
+    const int max_radius_y = height / 2;
+    if (resolved_radius > max_radius_x) {
+        resolved_radius = max_radius_x;
+    }
+    if (resolved_radius > max_radius_y) {
+        resolved_radius = max_radius_y;
+    }
+
+    if (resolved_radius <= 0) {
+        draw_rect(handle, x, y, width, height, color);
+        return;
+    }
+
+    const unsigned int source_red = (color >> 24) & 0xFFu;
+    const unsigned int source_green = (color >> 16) & 0xFFu;
+    const unsigned int source_blue = (color >> 8) & 0xFFu;
+    const unsigned int base_alpha = (color & 0xFFu) == 0u ? 0xFFu : (color & 0xFFu);
+    const float radius_value = static_cast<float>(resolved_radius);
+    const float radius_squared = radius_value * radius_value;
+    XCOLOR* edge_pixels = nullptr;
+    if (resolved_radius > 0) {
+        edge_pixels = new XCOLOR[resolved_radius];
+    }
+
+    for (int row = 0; row < height; ++row) {
+        const int mirror_row = row < resolved_radius ? row : (height - 1 - row);
+        const bool rounded_row = mirror_row < resolved_radius;
+        const int draw_y = y + row;
+
+        if (!rounded_row) {
+            draw_rect(handle, x, draw_y, width, 1, color);
+            continue;
+        }
+
+        if (width > resolved_radius * 2) {
+            draw_rect(handle, x + resolved_radius, draw_y, width - resolved_radius * 2, 1, color);
+        }
+
+        bool needs_left_blend = false;
+        bool needs_right_blend = false;
+        int left_run = 0;
+        int right_run = 0;
+        for (int column = 0; column < resolved_radius; ++column) {
+            unsigned int covered_samples = 0;
+            for (int sample_y = 0; sample_y < 4; ++sample_y) {
+                for (int sample_x = 0; sample_x < 4; ++sample_x) {
+                    const float pixel_x = static_cast<float>(column) + (static_cast<float>(sample_x) + 0.5f) * 0.25f;
+                    const float pixel_y = static_cast<float>(mirror_row) + (static_cast<float>(sample_y) + 0.5f) * 0.25f;
+                    const float dx = radius_value - pixel_x;
+                    const float dy = radius_value - pixel_y;
+                    if (dx * dx + dy * dy <= radius_squared) {
+                        ++covered_samples;
+                    }
+                }
+            }
+
+            if (covered_samples == 0) {
+                continue;
+            }
+
+            const unsigned int coverage = (covered_samples * 255u + 8u) / 16u;
+            const unsigned int alpha = (base_alpha * coverage + 127u) / 255u;
+            const int left_x = x + column;
+            const int right_x = x + width - 1 - column;
+
+            if (alpha >= 255u) {
+                draw_rect(handle, left_x, draw_y, 1, 1, color);
+                if (right_x != left_x) {
+                    draw_rect(handle, right_x, draw_y, 1, 1, color);
+                }
+                continue;
+            }
+
+            if (edge_pixels != nullptr && left_x >= 0 && draw_y >= 0) {
+                edge_pixels[column].Red = static_cast<UINT8>(alpha);
+                edge_pixels[column].Green = 0;
+                edge_pixels[column].Blue = 0;
+                needs_left_blend = true;
+                left_run = column + 1;
+            }
+
+            if (edge_pixels != nullptr && right_x != left_x && right_x >= 0 && draw_y >= 0) {
+                edge_pixels[column].Red = static_cast<UINT8>(alpha);
+                edge_pixels[column].Green = 0;
+                edge_pixels[column].Blue = 0;
+                needs_right_blend = true;
+                right_run = column + 1;
+            }
+        }
+
+        if (edge_pixels != nullptr && needs_left_blend && left_run > 0) {
+            xapi_ReadBuffer(handle, static_cast<UINT32>(x), static_cast<UINT32>(draw_y), static_cast<UINT32>(left_run), 1, edge_pixels);
+            for (int column = 0; column < left_run; ++column) {
+                const unsigned int alpha = edge_pixels[column].Red;
+                if (alpha == 0u || alpha >= 255u) {
+                    continue;
+                }
+                edge_pixels[column].Red = blend_channel(static_cast<unsigned char>(source_red), edge_pixels[column].Red, alpha);
+                edge_pixels[column].Green = blend_channel(static_cast<unsigned char>(source_green), edge_pixels[column].Green, alpha);
+                edge_pixels[column].Blue = blend_channel(static_cast<unsigned char>(source_blue), edge_pixels[column].Blue, alpha);
+            }
+            xapi_WriteBuffer(handle, static_cast<UINT32>(x), static_cast<UINT32>(draw_y), static_cast<UINT32>(left_run), 1, edge_pixels);
+        }
+
+        if (edge_pixels != nullptr && needs_right_blend && right_run > 0) {
+            const int start_x = x + width - right_run;
+            xapi_ReadBuffer(handle, static_cast<UINT32>(start_x), static_cast<UINT32>(draw_y), static_cast<UINT32>(right_run), 1, edge_pixels);
+            for (int column = 0; column < right_run; ++column) {
+                const unsigned int alpha = edge_pixels[right_run - 1 - column].Red;
+                if (alpha == 0u || alpha >= 255u) {
+                    continue;
+                }
+                edge_pixels[column].Red = blend_channel(static_cast<unsigned char>(source_red), edge_pixels[column].Red, alpha);
+                edge_pixels[column].Green = blend_channel(static_cast<unsigned char>(source_green), edge_pixels[column].Green, alpha);
+                edge_pixels[column].Blue = blend_channel(static_cast<unsigned char>(source_blue), edge_pixels[column].Blue, alpha);
+            }
+            xapi_WriteBuffer(handle, static_cast<UINT32>(start_x), static_cast<UINT32>(draw_y), static_cast<UINT32>(right_run), 1, edge_pixels);
+        }
+    }
+
+    delete[] edge_pixels;
 }
 
 void clear_draw_commands(unsigned long long)

@@ -168,6 +168,39 @@ int max_int(int a, int b)
     return a > b ? a : b;
 }
 
+bool string_equals(const char* left, const char* right)
+{
+    if (left == nullptr || right == nullptr) {
+        return left == right;
+    }
+
+    int index = 0;
+    while (left[index] != '\0' || right[index] != '\0') {
+        if (left[index] != right[index]) {
+            return false;
+        }
+        ++index;
+    }
+    return true;
+}
+
+void apply_linux_text_input_environment()
+{
+    const char* backend = std::getenv("STARDUSTUI_LINUX_BACKEND");
+    if (backend != nullptr && backend[0] != '\0') {
+        if (string_equals(backend, "wayland")) {
+            SDL_setenv("SDL_VIDEODRIVER", "wayland", 1);
+        } else if (string_equals(backend, "x11")) {
+            SDL_setenv("SDL_VIDEODRIVER", "x11", 1);
+        }
+    }
+
+    const char* gtk_im_module = std::getenv("STARDUSTUI_GTK_IM_MODULE");
+    if (gtk_im_module != nullptr && gtk_im_module[0] != '\0') {
+        SDL_setenv("GTK_IM_MODULE", gtk_im_module, 1);
+    }
+}
+
 void set_last_error(const char *message)
 {
     if (message == nullptr) {
@@ -233,15 +266,13 @@ SDL_Color to_sdl_color(unsigned int color)
     result.g = static_cast<Uint8>((color >> 16) & 0xFF);
     result.b = static_cast<Uint8>((color >> 8) & 0xFF);
     result.a = static_cast<Uint8>(color & 0xFF);
-    if (result.a == 0) {
-        result.a = 0xFF;
-    }
     return result;
 }
 
 bool ensure_sdl()
 {
     if (!g_sdl_ready) {
+        apply_linux_text_input_environment();
         if (SDL_Init(SDL_INIT_VIDEO) != 0) {
             set_last_error(SDL_GetError());
             return false;
@@ -434,6 +465,8 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
         return false;
     }
 
+    SDL_SetRenderDrawBlendMode(state->renderer, SDL_BLENDMODE_BLEND);
+
     state->window_id = SDL_GetWindowID(state->window);
     *handle = from_state(state);
     g_windows.push_back(state);
@@ -611,6 +644,82 @@ void draw_rect(unsigned long long handle, int x, int y, int width, int height, u
     command.height = height;
     command.color = color;
     state->commands.push_back(command);
+}
+
+void draw_round_rect(unsigned long long handle,
+                     int x,
+                     int y,
+                     int width,
+                     int height,
+                     unsigned int radius,
+                     unsigned int color)
+{
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    int resolved_radius = static_cast<int>(radius);
+    const int max_radius_x = width / 2;
+    const int max_radius_y = height / 2;
+    if (resolved_radius > max_radius_x) {
+        resolved_radius = max_radius_x;
+    }
+    if (resolved_radius > max_radius_y) {
+        resolved_radius = max_radius_y;
+    }
+
+    if (resolved_radius <= 0) {
+        draw_rect(handle, x, y, width, height, color);
+        return;
+    }
+
+    const unsigned int base_alpha = (color & 0xFFu) == 0u ? 0xFFu : (color & 0xFFu);
+    const float radius_value = static_cast<float>(resolved_radius);
+    const float radius_squared = radius_value * radius_value;
+
+    for (int row = 0; row < height; ++row) {
+        const int mirror_row = row < resolved_radius ? row : (height - 1 - row);
+        const bool rounded_row = mirror_row < resolved_radius;
+        const int draw_y = y + row;
+
+        if (!rounded_row) {
+            draw_rect(handle, x, draw_y, width, 1, color);
+            continue;
+        }
+
+        if (width > resolved_radius * 2) {
+            draw_rect(handle, x + resolved_radius, draw_y, width - resolved_radius * 2, 1, color);
+        }
+
+        for (int column = 0; column < resolved_radius; ++column) {
+            unsigned int covered_samples = 0;
+            for (int sample_y = 0; sample_y < 4; ++sample_y) {
+                for (int sample_x = 0; sample_x < 4; ++sample_x) {
+                    const float pixel_x = static_cast<float>(column) + (static_cast<float>(sample_x) + 0.5f) * 0.25f;
+                    const float pixel_y = static_cast<float>(mirror_row) + (static_cast<float>(sample_y) + 0.5f) * 0.25f;
+                    const float dx = radius_value - pixel_x;
+                    const float dy = radius_value - pixel_y;
+                    if (dx * dx + dy * dy <= radius_squared) {
+                        ++covered_samples;
+                    }
+                }
+            }
+
+            if (covered_samples == 0) {
+                continue;
+            }
+
+            const unsigned int coverage = (covered_samples * 255u + 8u) / 16u;
+            const unsigned int alpha = (base_alpha * coverage + 127u) / 255u;
+            const unsigned int pixel_color = (color & 0xFFFFFF00u) | (alpha & 0xFFu);
+            const int left_x = x + column;
+            const int right_x = x + width - 1 - column;
+            draw_rect(handle, left_x, draw_y, 1, 1, pixel_color);
+            if (right_x != left_x) {
+                draw_rect(handle, right_x, draw_y, 1, 1, pixel_color);
+            }
+        }
+    }
 }
 
 void clear_draw_commands(unsigned long long handle)

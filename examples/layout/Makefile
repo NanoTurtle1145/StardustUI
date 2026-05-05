@@ -80,6 +80,7 @@ SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/windows.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/windows.o
 CPPFLAGS += -DSTARDUSTUI_WINDOWS
 CXXFLAGS ?= $(COMMON_CXXFLAGS)
+LDFLAGS += -static-libgcc -static-libstdc++
 LDLIBS += -luser32 -lgdi32 -lmsimg32
 else ifeq ($(PLATFORM),linux)
 TARGET := $(BUILD_DIR)/layout

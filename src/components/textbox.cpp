@@ -17,6 +17,33 @@ int clamp_int(int value, int minimum, int maximum) {
     return value;
 }
 
+int utf8_codepoint_length(const char* text, int remaining)
+{
+    if (text == nullptr || remaining <= 0) {
+        return 0;
+    }
+
+    const unsigned char first = static_cast<unsigned char>(text[0]);
+    if ((first & 0x80u) == 0x00u) {
+        return 1;
+    }
+    if ((first & 0xE0u) == 0xC0u) {
+        return remaining >= 2 ? 2 : 1;
+    }
+    if ((first & 0xF0u) == 0xE0u) {
+        return remaining >= 3 ? 3 : 1;
+    }
+    if ((first & 0xF8u) == 0xF0u) {
+        return remaining >= 4 ? 4 : 1;
+    }
+    return 1;
+}
+
+bool is_utf8_continuation_byte(unsigned char byte)
+{
+    return (byte & 0xC0u) == 0x80u;
+}
+
 }
 
 TextBox::TextBox(int width, int height, bool input)
@@ -65,22 +92,30 @@ TextBox::~TextBox() = default;
 void TextBox::draw(unsigned long long handle) {
     this->update_layout();
     const Sytel style = this->resolve_style();
-    const unsigned int background_color = style.get_background_color(0xFFFFFFFF);
-    const unsigned int border_color = style.get_border_color(this->has_focus() ? 0x4A90E2FF : 0x7A7A7AFF);
+    const unsigned int background_color = style.get_background_color(0xFFFBFFFF);
+    const unsigned int border_color = style.get_border_color(this->has_focus() ? 0x6750A4FF : 0xCAC4CFFF);
     const unsigned int border_width = style.get_border_width(1);
-    const unsigned int text_color = style.get_color(0x000000FF);
+    const unsigned int text_color = style.get_color(0x1C1B1EFF);
     const unsigned int text_size = style.get_size(16);
-    const unsigned int padding = style.get_padding(8);
+    const unsigned int padding = style.get_padding(12);
+    const unsigned int radius = style.get_radius(12);
     const int line_height = this->get_line_height(text_size);
 
-    draw_rect(handle, static_cast<int>(this->x), static_cast<int>(this->y), this->get_width(), this->get_height(), border_color);
+    draw_round_rect(handle,
+                    static_cast<int>(this->x),
+                    static_cast<int>(this->y),
+                    this->get_width(),
+                    this->get_height(),
+                    radius,
+                    border_color);
 
     const int inner_x = static_cast<int>(this->x) + static_cast<int>(border_width);
     const int inner_y = static_cast<int>(this->y) + static_cast<int>(border_width);
     const int inner_width = this->get_width() - static_cast<int>(border_width * 2);
     const int inner_height = this->get_height() - static_cast<int>(border_width * 2);
     if (inner_width > 0 && inner_height > 0) {
-        draw_rect(handle, inner_x, inner_y, inner_width, inner_height, background_color);
+        const unsigned int inner_radius = radius > border_width ? radius - border_width : 0;
+        draw_round_rect(handle, inner_x, inner_y, inner_width, inner_height, inner_radius, background_color);
     }
 
     const int text_x = static_cast<int>(this->x) + static_cast<int>(border_width + padding);
@@ -258,11 +293,12 @@ bool TextBox::handle_char_input(char ch, bool special) {
         return false;
     }
 
-    if (ch < 32 || ch == 127) {
+    const unsigned char byte = static_cast<unsigned char>(ch);
+    if (byte < 32u || byte == 127u) {
         return false;
     }
 
-    if (this->text.push_char(ch)) {
+    if (this->text.push_char(static_cast<char>(byte))) {
         this->invalidate_layout();
         this->ensure_cursor_visible_pending = true;
         this->reset_cursor_blink();
@@ -379,7 +415,22 @@ void TextBox::rebuild_wrapped_lines(unsigned int text_size, int content_width) {
             continue;
         }
 
-        const int char_width = this->get_cached_char_width(text_size, static_cast<unsigned char>(ch));
+        const int remaining = length - index;
+        const int codepoint_length = utf8_codepoint_length(raw + index, remaining);
+        int char_width = 0;
+        if (codepoint_length == 1 && static_cast<unsigned char>(ch) < 128u) {
+            char_width = this->get_cached_char_width(text_size, static_cast<unsigned char>(ch));
+        } else {
+            stardustui::string codepoint_text;
+            for (int byte_index = 0; byte_index < codepoint_length; ++byte_index) {
+                codepoint_text.push_char(raw[index + byte_index]);
+            }
+            char_width = static_cast<int>(calc_text_width(codepoint_text, text_size));
+            if (char_width <= 0) {
+                char_width = static_cast<int>(text_size == 0 ? 16U : text_size);
+            }
+        }
+
         if (line_length > 0 && line_width + char_width > content_limit) {
             WrappedLine line;
             line.start = line_start;
@@ -387,14 +438,15 @@ void TextBox::rebuild_wrapped_lines(unsigned int text_size, int content_width) {
             this->wrapped_lines.push_back(line);
 
             line_start = index;
-            line_length = 1;
+            line_length = codepoint_length;
             line_width = char_width;
+            index += codepoint_length - 1;
             continue;
         }
 
         line_width += char_width;
-
-        ++line_length;
+        line_length += codepoint_length;
+        index += codepoint_length - 1;
     }
 
     WrappedLine line;
@@ -454,9 +506,15 @@ bool TextBox::erase_last_character() {
         return false;
     }
 
-    stardustui::string next_text;
+    int keep_length = length - 1;
     const char* current = this->text.c_str();
-    for (int index = 0; index < length - 1; ++index) {
+    while (keep_length > 0 &&
+           is_utf8_continuation_byte(static_cast<unsigned char>(current[keep_length]))) {
+        --keep_length;
+    }
+
+    stardustui::string next_text;
+    for (int index = 0; index < keep_length; ++index) {
         if (!next_text.push_char(current[index])) {
             return false;
         }
