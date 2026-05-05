@@ -116,6 +116,7 @@ void	xapi_Broken(WSTR broken_info);
 void	xapi_SendAppMessage(WSTR title, WSTR text);
 void 	xapi_Sleep(UINT64 ms);
 void 	xapi_Run(WSTR path);
+void    xapi_RunWithArgs(WSTR path, WSTR argv[]);
 void 	xapi_FlushTime();
 UINT64  xapi_GetTaskList(XapiTaskInfo *buffer, UINT64 max_count);
 UINT64  xapi_KillProcess(UINT64 pid);
