@@ -28,6 +28,12 @@ sudo pacman -S sdl2 sdl2_ttf
 make PLATFORM=linux
 ```
 
+On Debian/Ubuntu :
+``` bash
+sudo apt update
+sudo apt install libsdl2-dev libsdl2-ttf-dev
+``` 
+
 This produces:
 
 ```text
