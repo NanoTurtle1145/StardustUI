@@ -32,6 +32,18 @@ make PLATFORM=linux
 ``` bash
 sudo apt update
 sudo apt install libsdl2-dev libsdl2-ttf-dev
+
+make PLATFORM=linux
+``` 
+
+在 RHEL 上：
+``` bash
+#新版本RHEL/Rocky
+sudo dnf install SDL2-devel SDL2_ttf-devel
+#老版本RHEL/CentOS
+sudo yum install SDL2-devel SDL2_ttf-devel
+
+make PLATFORM=linux
 ``` 
 
 产物位置：
