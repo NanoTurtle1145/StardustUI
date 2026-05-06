@@ -21,6 +21,8 @@ The top-level `Makefile` selects a platform automatically when possible, and you
 
 The Linux backend currently uses SDL2 and SDL_ttf.
 
+The dependencies currently required:
+
 | Package manager | Command |
 | :--- | :--- |
 | **pacman** | `sudo pacman -S sdl2 sdl2_ttf` |
@@ -28,6 +30,10 @@ The Linux backend currently uses SDL2 and SDL_ttf.
 | **dnf** | `sudo dnf install SDL2-devel SDL2_ttf-devel` |
 | **yum** | `sudo yum install SDL2-devel SDL2_ttf-devel` |
 
+And then:
+```bash
+make PLATFORM=linux
+```
 
 This produces:
 

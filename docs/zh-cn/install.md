@@ -20,6 +20,7 @@ StardustUI 目前支持：
 ## Linux
 
 当前 Linux 后端使用 SDL2 和 SDL_ttf。
+目前需要的依赖：
 
 | 包管理器 | 安装命令 |
 | :--- | :--- |
@@ -27,6 +28,12 @@ StardustUI 目前支持：
 | **apt** | `sudo apt update && sudo apt install libsdl2-dev libsdl2-ttf-dev` |
 | **dnf** | `sudo dnf install SDL2-devel SDL2_ttf-devel` |
 | **yum** | `sudo yum install SDL2-devel SDL2_ttf-devel` |
+
+然后:
+
+```bash
+make PLATFORM=linux
+```
 
 产物位置：
 
