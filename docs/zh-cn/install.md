@@ -21,30 +21,12 @@ StardustUI 目前支持：
 
 当前 Linux 后端使用 SDL2 和 SDL_ttf。
 
-在 Arch Linux 上：
-
-```bash
-sudo pacman -S sdl2 sdl2_ttf
-make PLATFORM=linux
-```
-
-在 Debian/Ubuntu 上：
-``` bash
-sudo apt update
-sudo apt install libsdl2-dev libsdl2-ttf-dev
-
-make PLATFORM=linux
-``` 
-
-在 RHEL 上：
-``` bash
-#新版本RHEL/Rocky
-sudo dnf install SDL2-devel SDL2_ttf-devel
-#老版本RHEL/CentOS
-sudo yum install SDL2-devel SDL2_ttf-devel
-
-make PLATFORM=linux
-``` 
+| 发行版 | 安装命令 |
+| :--- | :--- |
+| **Arch Linux** | `sudo pacman -S sdl2 sdl2_ttf` |
+| **Debian/Ubuntu** | `sudo apt update && sudo apt install libsdl2-dev libsdl2-ttf-dev` |
+| **Red Hat (新)** | `sudo dnf install SDL2-devel SDL2_ttf-devel` |
+| **Red Hat (旧)** | `sudo yum install SDL2-devel SDL2_ttf-devel` |
 
 产物位置：
 
