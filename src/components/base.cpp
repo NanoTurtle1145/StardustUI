@@ -6,6 +6,7 @@ base_component::base_component()
       focused(false),
       redraw_requested(false),
       click_feedback_frames(0),
+      anchors(AnchorLeft | AnchorTop),
       x(0),
       y(0),
       width(0),
@@ -133,6 +134,31 @@ bool base_component::set_focus(bool focused) {
     return changed;
 }
 
+void base_component::on_parent_resize(int old_width, int old_height, int new_width, int new_height) {
+    const int delta_width = new_width - old_width;
+    const int delta_height = new_height - old_height;
+
+    int next_x = static_cast<int>(this->x);
+    int next_y = static_cast<int>(this->y);
+    int next_width = static_cast<int>(this->width);
+    int next_height = static_cast<int>(this->height);
+
+    if ((this->anchors & AnchorLeft) != 0u && (this->anchors & AnchorRight) != 0u) {
+        next_width += delta_width;
+    } else if ((this->anchors & AnchorRight) != 0u && (this->anchors & AnchorLeft) == 0u) {
+        next_x += delta_width;
+    }
+
+    if ((this->anchors & AnchorTop) != 0u && (this->anchors & AnchorBottom) != 0u) {
+        next_height += delta_height;
+    } else if ((this->anchors & AnchorBottom) != 0u && (this->anchors & AnchorTop) == 0u) {
+        next_y += delta_height;
+    }
+
+    this->set_bounds(next_x, next_y, next_width, next_height);
+    this->request_redraw();
+}
+
 bool base_component::has_focus() const {
     return this->focused;
 }
@@ -143,6 +169,14 @@ int base_component::get_width() const {
 
 int base_component::get_height() const {
     return static_cast<int>(this->height);
+}
+
+void base_component::set_anchors(unsigned int anchors) {
+    this->anchors = anchors;
+}
+
+unsigned int base_component::get_anchors() const {
+    return this->anchors;
 }
 
 void base_component::request_redraw() {

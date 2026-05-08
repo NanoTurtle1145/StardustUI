@@ -14,7 +14,7 @@ ABGR_WRAPPER_DIR := $(FRAMEWORK_DIR)/third_party/ab_glyph_rasterizer/wrapper
 ABGR_LIB := $(ABGR_WRAPPER_DIR)/target/release/libstardustui_ab_glyph_rasterizer_capi.a
 
 SRC_FILES := \
-	layout.cpp \
+	duckchat.cpp \
 	$(FRAMEWORK_DIR)/src/file.cpp \
 	$(FRAMEWORK_DIR)/src/network.cpp \
 	$(FRAMEWORK_DIR)/src/theme.cpp \
@@ -33,7 +33,7 @@ SRC_FILES := \
 	$(FRAMEWORK_DIR)/src/components/flex.cpp
 
 OBJ_FILES := \
-	$(OBJ_DIR)/layout.o \
+	$(OBJ_DIR)/duckchat.o \
 	$(OBJ_DIR)/framework/file.o \
 	$(OBJ_DIR)/framework/network.o \
 	$(OBJ_DIR)/framework/theme.o \
@@ -78,7 +78,7 @@ CPPFLAGS += -I$(FRAMEWORK_DIR) -I$(FRAMEWORK_DIR)/includes
 COMMON_CXXFLAGS := -O0 -Wall -g -std=gnu++17
 
 ifeq ($(PLATFORM),windows)
-TARGET := $(BUILD_DIR)/layout.exe
+TARGET := $(BUILD_DIR)/duckchat.exe
 SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/windows.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/windows.o
 CPPFLAGS += -DSTARDUSTUI_WINDOWS
@@ -87,7 +87,7 @@ LDFLAGS += -static-libgcc -static-libstdc++
 LDLIBS += -luser32 -lgdi32 -lmsimg32
 LDLIBS += -lws2_32
 else ifeq ($(PLATFORM),linux)
-TARGET := $(BUILD_DIR)/layout
+TARGET := $(BUILD_DIR)/duckchat
 SRC_FILES += $(FRAMEWORK_DIR)/src/platforms/linux.cpp
 OBJ_FILES += $(OBJ_DIR)/framework/platforms/linux.o
 CPPFLAGS += -DSTARDUSTUI_LINUX
@@ -96,8 +96,8 @@ CPPFLAGS += $(shell pkg-config --cflags sdl2 2>/dev/null)
 CXXFLAGS ?= $(COMMON_CXXFLAGS)
 LDLIBS += $(ABGR_LIB) $(shell pkg-config --libs sdl2 2>/dev/null) -ldl -lpthread -lm
 else ifeq ($(PLATFORM),xj380)
-TARGET := $(BUILD_DIR)/layout.elf
-APP_OUT := ../../../../out/layout.elf
+TARGET := $(BUILD_DIR)/duckchat.elf
+APP_OUT := ../../../../out/duckchat.elf
 STAGING_APPS_DIR := ../../../../out/XJ380/apps
 
 XAPI_DIR := $(ROOT_DIR)/user/xapi
@@ -135,7 +135,7 @@ $(TARGET): xapi $(OBJ_FILES)
 copy: $(TARGET)
 	@$(call make-dir,$(dir $(APP_OUT)))
 	@cp -a $(TARGET) $(APP_OUT)
-	@if [ -d "$(STAGING_APPS_DIR)" ]; then cp -a $(TARGET) $(STAGING_APPS_DIR)/layout.elf; fi
+	@if [ -d "$(STAGING_APPS_DIR)" ]; then cp -a $(TARGET) $(STAGING_APPS_DIR)/duckchat.elf; fi
 	@echo "COPY $(TARGET) -> $(APP_OUT)"
 else
 xapi:
@@ -154,7 +154,7 @@ copy: $(TARGET)
 	@echo "copy is only used for PLATFORM=xj380"
 endif
 
-$(OBJ_DIR)/layout.o: layout.cpp $(FRAMEWORK_HEADERS)
+$(OBJ_DIR)/duckchat.o: duckchat.cpp $(FRAMEWORK_HEADERS)
 	@$(call make-dir,$(dir $@))
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	@echo "CPP $< -> $@"

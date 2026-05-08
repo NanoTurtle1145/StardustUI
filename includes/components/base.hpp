@@ -5,6 +5,13 @@
 class base_component
 {
 public:
+    enum Anchor {
+        AnchorLeft = 1 << 0,
+        AnchorTop = 1 << 1,
+        AnchorRight = 1 << 2,
+        AnchorBottom = 1 << 3
+    };
+
     base_component();
     virtual ~base_component();
     base_component(const base_component&) = delete;
@@ -32,9 +39,12 @@ public:
     virtual bool handle_left_button(bool pressed, int x, int y);
     virtual bool handle_char_input(char ch, bool special);
     virtual bool set_focus(bool focused);
+    virtual void on_parent_resize(int old_width, int old_height, int new_width, int new_height);
     bool has_focus() const;
     int get_width() const;
     int get_height() const;
+    void set_anchors(unsigned int anchors);
+    unsigned int get_anchors() const;
     void request_redraw();
     bool consume_redraw_request();
     bool has_pending_redraw() const;
@@ -56,6 +66,7 @@ protected:
     bool focused;
     bool redraw_requested;
     int click_feedback_frames;
+    unsigned int anchors;
     unsigned int x,y;
     unsigned int width,height;
 };

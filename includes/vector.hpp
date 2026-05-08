@@ -1,5 +1,8 @@
 #pragma once
 
+#include <new>
+#include <cstdlib>
+
 namespace stardustui {
 template<typename T>
 class vector {
@@ -7,7 +10,8 @@ public:
 	vector() : items(nullptr), count(0), storage(0) {}
 
 	~vector() {
-		delete[] this->items;
+		destroy_range(0, this->count);
+		std::free(this->items);
 	}
 
 	vector(const vector& other) : items(nullptr), count(0), storage(0) {
@@ -30,7 +34,8 @@ public:
 
 	vector& operator=(vector&& other) noexcept {
 		if (this != &other) {
-			delete[] this->items;
+			destroy_range(0, this->count);
+			std::free(this->items);
 			this->items = other.items;
 			this->count = other.count;
 			this->storage = other.storage;
@@ -46,7 +51,8 @@ public:
 			return false;
 		}
 
-		this->items[this->count++] = value;
+		new (&this->items[this->count]) T(value);
+		++this->count;
 		return true;
 	}
 
@@ -55,16 +61,17 @@ public:
 			return true;
 		}
 
-		T* new_items = new T[new_capacity];
+		T* new_items = allocate_raw(new_capacity);
 		if (new_items == nullptr) {
 			return false;
 		}
 
 		for (int index = 0; index < this->count; ++index) {
-			new_items[index] = this->items[index];
+			new (&new_items[index]) T(this->items[index]);
 		}
 
-		delete[] this->items;
+		destroy_range(0, this->count);
+		std::free(this->items);
 		this->items = new_items;
 		this->storage = new_capacity;
 		return true;
@@ -83,11 +90,13 @@ public:
 	}
 
 	void clear() {
+		destroy_range(0, this->count);
 		this->count = 0;
 	}
 
 	void release_storage() {
-		delete[] this->items;
+		destroy_range(0, this->count);
+		std::free(this->items);
 		this->items = nullptr;
 		this->count = 0;
 		this->storage = 0;
@@ -118,18 +127,28 @@ public:
 	}
 
 private:
+	static T* allocate_raw(int capacity) {
+		return capacity > 0 ? static_cast<T*>(std::malloc(sizeof(T) * static_cast<std::size_t>(capacity))) : nullptr;
+	}
+
+	void destroy_range(int begin, int end) {
+		for (int index = begin; index < end; ++index) {
+			this->items[index].~T();
+		}
+	}
+
 	void copy_from(const vector& other) {
 		if (other.storage == 0) {
 			return;
 		}
 
-		T* new_items = new T[other.storage];
+		T* new_items = allocate_raw(other.storage);
 		if (new_items == nullptr) {
 			return;
 		}
 
 		for (int index = 0; index < other.count; ++index) {
-			new_items[index] = other.items[index];
+			new (&new_items[index]) T(other.items[index]);
 		}
 
 		this->items = new_items;

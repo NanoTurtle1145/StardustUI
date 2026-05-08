@@ -50,8 +50,10 @@ private:
     struct Item {
         base_component* component;
         int flex_grow;
+        int basis_main;
+        int basis_cross;
 
-        Item() : component(nullptr), flex_grow(0) {}
+        Item() : component(nullptr), flex_grow(0), basis_main(0), basis_cross(0) {}
     };
 
     stardustui::vector<Item> items;

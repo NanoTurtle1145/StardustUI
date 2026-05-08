@@ -84,6 +84,111 @@ bool query_file_length(const char* path, unsigned long long& out_length)
     xapi_CloseFile(file);
     return true;
 }
+
+int count_text_length_xj380(const char* text)
+{
+    if (text == nullptr) {
+        return 0;
+    }
+
+    int length = 0;
+    while (text[length] != '\0') {
+        ++length;
+    }
+    return length;
+}
+
+bool append_xj380_bytes(stardustui::vector<unsigned char>& target, const unsigned char* data, int size)
+{
+    if (size <= 0) {
+        return true;
+    }
+    if (data == nullptr) {
+        return false;
+    }
+
+    if (!target.reserve(target.size() + size)) {
+        return false;
+    }
+
+    for (int index = 0; index < size; ++index) {
+        if (!target.push_back(data[index])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool set_non_blocking_xj380_fd(int fd, bool enabled)
+{
+    if (fd < 0) {
+        return false;
+    }
+
+    const int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) {
+        return false;
+    }
+
+    int next_flags = flags;
+    if (enabled) {
+        next_flags |= O_NONBLOCK;
+    } else {
+        next_flags &= ~O_NONBLOCK;
+    }
+
+    if (next_flags == flags) {
+        return true;
+    }
+
+    return fcntl(fd, F_SETFL, static_cast<uint64_t>(next_flags)) == 0;
+}
+
+bool build_http_request_xj380(const HttpRequest& request, stardustui::string& out_request)
+{
+    out_request.assign("");
+    const char* method = request.method.length() > 0 ? request.method.c_str() : "GET";
+    const char* path = request.path.length() > 0 ? request.path.c_str() : "/";
+    const char* host = request.host.c_str();
+    const char* body = request.body.c_str();
+    const char* content_type = request.content_type.length() > 0 ? request.content_type.c_str() : "text/plain";
+    const char* extra_headers = request.extra_headers.c_str();
+    const int body_length = count_text_length_xj380(body);
+
+    out_request.append(method);
+    out_request.append(" ");
+    out_request.append(path);
+    out_request.append(" HTTP/1.1\r\nHost: ");
+    out_request.append(host);
+    out_request.append("\r\nConnection: close\r\n");
+
+    if (extra_headers != nullptr && extra_headers[0] != '\0') {
+        out_request.append(extra_headers);
+        const int header_length = count_text_length_xj380(extra_headers);
+        if (header_length < 2 ||
+            extra_headers[header_length - 2] != '\r' ||
+            extra_headers[header_length - 1] != '\n') {
+            out_request.append("\r\n");
+        }
+    }
+
+    if (body_length > 0) {
+        char content_length_buffer[32];
+        snprintf(content_length_buffer, sizeof(content_length_buffer), "%d", body_length);
+        out_request.append("Content-Type: ");
+        out_request.append(content_type);
+        out_request.append("\r\nContent-Length: ");
+        out_request.append(content_length_buffer);
+        out_request.append("\r\n");
+    }
+
+    out_request.append("\r\n");
+    if (body_length > 0) {
+        out_request.append(body);
+    }
+    return true;
+}
 }
 
 // File platform adapter used by stardustui::File.
@@ -165,6 +270,202 @@ bool file_append_text_platform(const char* path, const char* text, int length)
     }
 
     return (long long)xapi_WriteFile((char*)path, (char*)text, (unsigned long long)length, offset) >= 0;
+}
+
+bool socket_connect_platform(const char* host, unsigned short port, long long& out_handle)
+{
+    out_handle = 0;
+    if (host == nullptr || host[0] == '\0' || port == 0) {
+        return false;
+    }
+
+    char port_buffer[16];
+    snprintf(port_buffer, sizeof(port_buffer), "%u", static_cast<unsigned int>(port));
+
+    struct addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    struct addrinfo* result = nullptr;
+    if (getaddrinfo(host, port_buffer, &hints, &result) != 0 || result == nullptr) {
+        if (result != nullptr) {
+            freeaddrinfo(result);
+        }
+        return false;
+    }
+
+    bool connected = false;
+    for (struct addrinfo* current = result; current != nullptr; current = current->ai_next) {
+        if (current->ai_addr == nullptr) {
+            continue;
+        }
+
+        const int fd = socket(current->ai_family, SOCK_STREAM, 0);
+        if (fd < 0) {
+            continue;
+        }
+
+        if (connect(fd, current->ai_addr, current->ai_addrlen) == 0) {
+            set_non_blocking_xj380_fd(fd, true);
+            out_handle = fd;
+            connected = true;
+            break;
+        }
+
+        close(fd);
+    }
+
+    freeaddrinfo(result);
+    return connected;
+}
+
+bool socket_close_platform(long long handle)
+{
+    if (handle == 0) {
+        return true;
+    }
+    shutdown(static_cast<int>(handle), SHUT_RDWR);
+    return close(static_cast<int>(handle)) == 0;
+}
+
+bool socket_send_platform(long long handle, const unsigned char* data, int size, int& out_sent)
+{
+    out_sent = 0;
+    if (handle == 0 || size < 0 || (size > 0 && data == nullptr)) {
+        return false;
+    }
+    if (size == 0) {
+        return true;
+    }
+
+    const int sent = write(static_cast<int>(handle),
+                           reinterpret_cast<char*>(const_cast<unsigned char*>(data)),
+                           static_cast<uint64_t>(size));
+    if (sent <= 0) {
+        return false;
+    }
+
+    out_sent = sent;
+    return true;
+}
+
+bool socket_receive_platform(long long handle, unsigned char* buffer, int capacity, int& out_received)
+{
+    out_received = 0;
+    if (handle == 0 || capacity < 0 || (capacity > 0 && buffer == nullptr)) {
+        return false;
+    }
+    if (capacity == 0) {
+        return true;
+    }
+
+    struct pollfd descriptor{};
+    descriptor.fd = static_cast<int>(handle);
+    descriptor.events = POLLIN;
+    descriptor.revents = 0;
+
+    const int ready = poll(&descriptor, 1, 0);
+    if (ready < 0) {
+        return false;
+    }
+    if (ready == 0) {
+        return true;
+    }
+
+    if ((descriptor.revents & POLLNVAL) != 0) {
+        return false;
+    }
+    if ((descriptor.revents & (POLLIN | POLLHUP)) == 0) {
+        return true;
+    }
+
+    const int received = read(static_cast<int>(handle),
+                              reinterpret_cast<char*>(buffer),
+                              static_cast<uint64_t>(capacity));
+    if (received < 0) {
+        return false;
+    }
+
+    out_received = received;
+    return true;
+}
+
+bool http_request_platform(const HttpRequest& request,
+                           stardustui::vector<unsigned char>& out_response,
+                           stardustui::string& out_error)
+{
+    out_response.clear();
+    out_error.assign("");
+
+    if (request.use_tls) {
+        out_error.assign("HTTPS is not implemented on XJ380 backend yet");
+        return false;
+    }
+
+    stardustui::string request_text;
+    if (!build_http_request_xj380(request, request_text)) {
+        out_error.assign("Failed to build request");
+        return false;
+    }
+
+    long long handle = 0;
+    if (!socket_connect_platform(request.host.c_str(), request.port, handle)) {
+        out_error.assign("connect failed");
+        return false;
+    }
+
+    int sent_total = 0;
+    const unsigned char* send_data = reinterpret_cast<const unsigned char*>(request_text.c_str());
+    const int send_size = request_text.length();
+    while (sent_total < send_size) {
+        int sent_now = 0;
+        if (!socket_send_platform(handle, send_data + sent_total, send_size - sent_total, sent_now) || sent_now <= 0) {
+            socket_close_platform(handle);
+            out_error.assign("send failed");
+            return false;
+        }
+        sent_total += sent_now;
+    }
+
+    unsigned char buffer[2048];
+    while (true) {
+        struct pollfd descriptor{};
+        descriptor.fd = static_cast<int>(handle);
+        descriptor.events = POLLIN;
+        descriptor.revents = 0;
+
+        const int ready = poll(&descriptor, 1, 5000);
+        if (ready < 0) {
+            socket_close_platform(handle);
+            out_error.assign("recv failed");
+            return false;
+        }
+        if (ready == 0) {
+            socket_close_platform(handle);
+            out_error.assign("recv timeout");
+            return false;
+        }
+
+        const int received = read(static_cast<int>(handle),
+                                  reinterpret_cast<char*>(buffer),
+                                  sizeof(buffer));
+        if (received < 0) {
+            socket_close_platform(handle);
+            out_error.assign("recv failed");
+            return false;
+        }
+        if (received == 0) {
+            break;
+        }
+        if (!append_xj380_bytes(out_response, buffer, received)) {
+            socket_close_platform(handle);
+            out_error.assign("out of memory");
+            return false;
+        }
+    }
+
+    socket_close_platform(handle);
+    return true;
 }
 
 }
@@ -542,7 +843,7 @@ void operator delete[](void *ptr, operator_size_t) noexcept
     free(ptr);
 }
 
-bool create_window(char *title, int width, int height, unsigned long long *handle)
+bool create_window(char *title, int width, int height, bool, unsigned long long *handle)
 {
     if (title == nullptr || handle == nullptr || width <= 0 || height <= 0) return false;
 
@@ -599,6 +900,11 @@ void pump_window_events()
 bool is_window_open(unsigned long long handle)
 {
     return handle != 0;
+}
+
+bool set_window_resizable(unsigned long long, bool)
+{
+    return false;
 }
 
 bool delete_window(unsigned long long handle)

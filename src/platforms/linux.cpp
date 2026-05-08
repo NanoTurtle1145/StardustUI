@@ -4,8 +4,15 @@
 #include "../../includes/vector.hpp"
 
 #include <SDL.h>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include <time.h>
 
 namespace stardustui {
@@ -105,6 +112,366 @@ bool file_append_text_platform(const char* path, const char* text, int length)
     const unsigned int written = fwrite(text, 1, (unsigned int)length, file);
     fclose(file);
     return written == (unsigned int)length;
+}
+
+namespace {
+int count_text_length_linux(const char* text)
+{
+    if (text == nullptr) {
+        return 0;
+    }
+
+    int length = 0;
+    while (text[length] != '\0') {
+        ++length;
+    }
+    return length;
+}
+
+bool send_all_linux_fd(int fd, const unsigned char* data, int size)
+{
+    int sent_total = 0;
+    while (sent_total < size) {
+        const int sent_now = static_cast<int>(::send(fd,
+                                                     reinterpret_cast<const char*>(data + sent_total),
+                                                     static_cast<size_t>(size - sent_total),
+                                                     0));
+        if (sent_now <= 0) {
+            return false;
+        }
+        sent_total += sent_now;
+    }
+    return true;
+}
+
+bool append_linux_bytes(stardustui::vector<unsigned char>& target, const unsigned char* data, int size)
+{
+    if (size <= 0) {
+        return true;
+    }
+    if (data == nullptr) {
+        return false;
+    }
+    if (!target.reserve(target.size() + size)) {
+        return false;
+    }
+    for (int index = 0; index < size; ++index) {
+        if (!target.push_back(data[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool read_all_linux_fd(int fd, stardustui::vector<unsigned char>& out_response)
+{
+    out_response.clear();
+    unsigned char buffer[4096];
+    while (true) {
+        const int received = static_cast<int>(::recv(fd, reinterpret_cast<char*>(buffer), sizeof(buffer), 0));
+        if (received < 0) {
+            return false;
+        }
+        if (received == 0) {
+            return true;
+        }
+        if (!append_linux_bytes(out_response, buffer, received)) {
+            return false;
+        }
+    }
+}
+
+bool build_http_request_linux(const HttpRequest& request, stardustui::string& out_request)
+{
+    out_request.assign("");
+    const char* method = request.method.length() > 0 ? request.method.c_str() : "GET";
+    const char* path = request.path.length() > 0 ? request.path.c_str() : "/";
+    const char* host = request.host.c_str();
+    const char* content_type = request.content_type.length() > 0 ? request.content_type.c_str() : "text/plain";
+    const char* extra_headers = request.extra_headers.c_str();
+    const char* body = request.body.c_str();
+    const int body_length = request.body.length();
+
+    out_request.append(method);
+    out_request.append(" ");
+    out_request.append(path);
+    out_request.append(" HTTP/1.1\r\nHost: ");
+    out_request.append(host);
+    out_request.append("\r\nUser-Agent: StardustUI/1.0\r\nAccept: */*\r\nConnection: close\r\n");
+
+    if (extra_headers != nullptr && extra_headers[0] != '\0') {
+        out_request.append(extra_headers);
+        const int header_length = count_text_length_linux(extra_headers);
+        if (header_length < 2 ||
+            extra_headers[header_length - 2] != '\r' ||
+            extra_headers[header_length - 1] != '\n') {
+            out_request.append("\r\n");
+        }
+    }
+
+    if (body_length > 0) {
+        char content_length_buffer[32];
+        std::snprintf(content_length_buffer, sizeof(content_length_buffer), "%d", body_length);
+        out_request.append("Content-Type: ");
+        out_request.append(content_type);
+        out_request.append("\r\nContent-Length: ");
+        out_request.append(content_length_buffer);
+        out_request.append("\r\n");
+    }
+
+    out_request.append("\r\n");
+    if (body_length > 0) {
+        out_request.append(body);
+    }
+    return true;
+}
+
+bool set_non_blocking_linux_fd(int fd, bool enabled)
+{
+    if (fd < 0) {
+        return false;
+    }
+
+    const int flags = ::fcntl(fd, F_GETFL, 0);
+    if (flags < 0) {
+        return false;
+    }
+
+    int next_flags = flags;
+    if (enabled) {
+        next_flags |= O_NONBLOCK;
+    } else {
+        next_flags &= ~O_NONBLOCK;
+    }
+
+    if (next_flags == flags) {
+        return true;
+    }
+
+    return ::fcntl(fd, F_SETFL, next_flags) == 0;
+}
+}
+
+bool socket_connect_platform(const char* host, unsigned short port, long long& out_handle)
+{
+    out_handle = 0;
+    if (host == nullptr || host[0] == '\0' || port == 0) {
+        return false;
+    }
+
+    char port_buffer[16];
+    std::snprintf(port_buffer, sizeof(port_buffer), "%u", static_cast<unsigned int>(port));
+
+    struct addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    struct addrinfo* result = nullptr;
+    if (::getaddrinfo(host, port_buffer, &hints, &result) != 0 || result == nullptr) {
+        if (result != nullptr) {
+            ::freeaddrinfo(result);
+        }
+        return false;
+    }
+
+    bool connected = false;
+    for (struct addrinfo* current = result; current != nullptr; current = current->ai_next) {
+        if (current->ai_addr == nullptr) {
+            continue;
+        }
+
+        const int fd = ::socket(current->ai_family, current->ai_socktype, current->ai_protocol);
+        if (fd < 0) {
+            continue;
+        }
+
+        if (::connect(fd, current->ai_addr, current->ai_addrlen) == 0) {
+            set_non_blocking_linux_fd(fd, true);
+            out_handle = fd;
+            connected = true;
+            break;
+        }
+
+        ::close(fd);
+    }
+
+    ::freeaddrinfo(result);
+    return connected;
+}
+
+bool socket_close_platform(long long handle)
+{
+    if (handle == 0) {
+        return true;
+    }
+    return ::close(static_cast<int>(handle)) == 0;
+}
+
+bool socket_send_platform(long long handle, const unsigned char* data, int size, int& out_sent)
+{
+    out_sent = 0;
+    if (handle == 0 || size < 0 || (size > 0 && data == nullptr)) {
+        return false;
+    }
+    if (size == 0) {
+        return true;
+    }
+
+    const int sent = static_cast<int>(::send(static_cast<int>(handle),
+                                             reinterpret_cast<const char*>(data),
+                                             static_cast<size_t>(size),
+                                             0));
+    if (sent < 0) {
+        return false;
+    }
+
+    out_sent = sent;
+    return true;
+}
+
+bool socket_receive_platform(long long handle, unsigned char* buffer, int capacity, int& out_received)
+{
+    out_received = 0;
+    if (handle == 0 || capacity < 0 || (capacity > 0 && buffer == nullptr)) {
+        return false;
+    }
+    if (capacity == 0) {
+        return true;
+    }
+
+    struct pollfd descriptor{};
+    descriptor.fd = static_cast<int>(handle);
+    descriptor.events = POLLIN;
+    descriptor.revents = 0;
+    const int ready = ::poll(&descriptor, 1, 0);
+    if (ready < 0) {
+        return false;
+    }
+    if (ready == 0) {
+        out_received = 0;
+        return true;
+    }
+
+    if ((descriptor.revents & POLLNVAL) != 0) {
+        return false;
+    }
+
+    if ((descriptor.revents & (POLLIN | POLLHUP)) == 0) {
+        out_received = 0;
+        return true;
+    }
+
+    const int received = static_cast<int>(::recv(static_cast<int>(handle),
+                                                 reinterpret_cast<char*>(buffer),
+                                                 static_cast<size_t>(capacity),
+                                                 0));
+    if (received < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            out_received = 0;
+            return true;
+        }
+        return false;
+    }
+
+    out_received = received;
+    return true;
+}
+
+bool http_request_platform(const HttpRequest& request,
+                           vector<unsigned char>& out_response,
+                           string& out_error)
+{
+    out_response.clear();
+    out_error.assign("");
+
+    stardustui::string request_text;
+    if (!build_http_request_linux(request, request_text)) {
+        out_error.assign("Failed to build request");
+        return false;
+    }
+
+    if (!request.use_tls) {
+        long long handle = 0;
+        if (!socket_connect_platform(request.host.c_str(), request.port, handle)) {
+            out_error.assign("connect failed");
+            return false;
+        }
+
+        const bool sent_ok = send_all_linux_fd(static_cast<int>(handle),
+                                               reinterpret_cast<const unsigned char*>(request_text.c_str()),
+                                               request_text.length());
+        const bool read_ok = sent_ok && read_all_linux_fd(static_cast<int>(handle), out_response);
+        socket_close_platform(handle);
+
+        if (!sent_ok) {
+            out_error.assign("send failed");
+            return false;
+        }
+        if (!read_ok) {
+            out_error.assign("recv failed");
+            return false;
+        }
+        return true;
+    }
+
+    stardustui::string command;
+    command.append("printf '%s' \"");
+    const char* raw = request_text.c_str();
+    for (int index = 0; raw[index] != '\0'; ++index) {
+        const char ch = raw[index];
+        if (ch == '\\') {
+            command.append("\\\\");
+        } else if (ch == '"') {
+            command.append("\\\"");
+        } else if (ch == '\r') {
+            command.append("\\r");
+        } else if (ch == '\n') {
+            command.append("\\n");
+        } else if (ch == '%') {
+            command.append("%%");
+        } else {
+            char single[2] = {ch, '\0'};
+            command.append(single);
+        }
+    }
+    command.append("\" | openssl s_client -quiet -connect ");
+    command.append(request.host.c_str());
+    command.append(":");
+    char port_buffer[16];
+    std::snprintf(port_buffer, sizeof(port_buffer), "%u", static_cast<unsigned int>(request.port));
+    command.append(port_buffer);
+    command.append(" 2>/dev/null");
+
+    FILE* pipe = ::popen(command.c_str(), "r");
+    if (pipe == nullptr) {
+        out_error.assign("openssl s_client failed");
+        return false;
+    }
+
+    unsigned char buffer[4096];
+    while (true) {
+        const size_t read_count = std::fread(buffer, 1, sizeof(buffer), pipe);
+        if (read_count > 0) {
+            if (!append_linux_bytes(out_response, buffer, static_cast<int>(read_count))) {
+                ::pclose(pipe);
+                out_error.assign("Out of memory");
+                return false;
+            }
+        }
+        if (read_count < sizeof(buffer)) {
+            if (std::feof(pipe)) {
+                break;
+            }
+            if (std::ferror(pipe)) {
+                ::pclose(pipe);
+                out_error.assign("tls read failed");
+                return false;
+            }
+        }
+    }
+
+    ::pclose(pipe);
+    return out_response.size() > 0;
 }
 
 bool set_text_font_path(const stardustui::string& path)
@@ -423,7 +790,7 @@ void apply_window_outer_size(WindowState *state, int outer_width, int outer_heig
 }
 }
 
-bool create_window(char *title, int width, int height, unsigned long long *handle)
+bool create_window(char *title, int width, int height, bool resizable, unsigned long long *handle)
 {
     if (title == nullptr || handle == nullptr || width <= 0 || height <= 0) {
         set_last_error("invalid window title, size, or handle output");
@@ -445,7 +812,7 @@ bool create_window(char *title, int width, int height, unsigned long long *handl
                                      SDL_WINDOWPOS_CENTERED,
                                      width,
                                      height,
-                                     SDL_WINDOW_SHOWN);
+                                     SDL_WINDOW_SHOWN | (resizable ? SDL_WINDOW_RESIZABLE : 0));
     if (state->window == nullptr) {
         set_last_error(SDL_GetError());
         delete state;
@@ -563,6 +930,13 @@ void pump_window_events()
             } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER) {
                 state->message_proc(kWindowMessageSpecialChar, 0, static_cast<unsigned long long>('\n'));
             }
+        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+            if (state->message_proc != nullptr) {
+                state->message_proc(kWindowMessageResize,
+                                    static_cast<unsigned long long>(event.window.data1),
+                                    static_cast<unsigned long long>(event.window.data2));
+            }
+            redraw(state);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_EXPOSED) {
             redraw(state);
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
@@ -575,6 +949,17 @@ bool is_window_open(unsigned long long handle)
 {
     WindowState *state = to_state(handle);
     return state != nullptr && has_state(state);
+}
+
+bool set_window_resizable(unsigned long long handle, bool resizable)
+{
+    WindowState *state = to_state(handle);
+    if (state == nullptr || state->window == nullptr) {
+        return false;
+    }
+
+    SDL_SetWindowResizable(state->window, resizable ? SDL_TRUE : SDL_FALSE);
+    return true;
 }
 
 bool delete_window(unsigned long long handle)

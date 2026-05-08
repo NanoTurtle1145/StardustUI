@@ -17,6 +17,10 @@
 
 ![XJ380 上的 Hello World](https://nutpacks.oss-cn-beijing.aliyuncs.com/StardustUI/Images/Image_1777641206153_467.jpg)XJ380 上的 Hello World
 
+![Linux上的DuckChat](https://nutpacks.oss-cn-beijing.aliyuncs.com/StardustUI/Images/350fa2e8-ee8e-4146-aba1-2acc768f9131.png)    Linux上的DuckChat
+
+![XJ380上的DuckChat](https://nutpacks.oss-cn-beijing.aliyuncs.com/StardustUI/Images/908120CBCD7739D23B429CF997AE3473.png)    XJ380上的DuckChat
+
 ## 文档
 
 - [文档目录](./docs.md)
@@ -24,13 +28,21 @@
 - [快速开始](./quickstart.md)
 - [创建窗口](./create_window.md)
 - [样式系统](./style.md)
+- [Button 控件](./button.md)
+- [TextBox 控件](./textbox.md)
+- [ScrollBar 控件](./scrollbar.md)
 - [布局系统](./layout.md)
 - [Canvas 控件](./canvas.md)
+- [DuckChat 教程](./duckchat_tutorial.md)
 
 ## 示例
 
 - `examples/helloworld`
-- `examples/layout`
+- `examples/duckchat`
+
+## 主题生成器
+
+- 在线 Material 3 主题生成器：<https://archzero.top/MD3color/>
 
 ## Star 历史
 

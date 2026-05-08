@@ -12,7 +12,7 @@ StardustUI currently provides a `Canvas` component for custom pixel-based drawin
 
 Use `Canvas` when a built-in text component is not enough and you want to draw pixels or filled rectangles yourself.
 
-This is also the component used by the `layout` example to draw colored blocks for each flex region.
+This was also the component used by the older `layout` example to draw colored blocks for each flex region.
 
 ## API
 

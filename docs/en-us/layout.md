@@ -111,13 +111,13 @@ For example:
 
 ## Example
 
-This is the current layout example path:
+This is the current layout-related example path:
 
 ```text
-examples/layout/layout.cpp
+examples/duckchat/duckchat.cpp
 ```
 
-It builds a structure like this:
+The `DuckChat` example builds a structure like this:
 
 1. root column
 2. header
@@ -162,3 +162,4 @@ root.addComponent(content, 1);
 - [Canvas Component](./canvas.md)
 - [Create a Window](./create_window.md)
 - [Quick Start](./quickstart.md)
+- [DuckChat tutorial](./duckchat_tutorial.md)

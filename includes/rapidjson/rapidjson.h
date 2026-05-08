@@ -162,6 +162,8 @@
 #if defined(_MSC_VER) && (_MSC_VER < 1800)	// Visual Studio 2013
 #include "msinttypes/stdint.h"
 #include "msinttypes/inttypes.h"
+#elif defined(XJ380)
+#include <cstdint>
 #else
 // Other compilers should have this.
 #include <stdint.h>
@@ -383,7 +385,11 @@ RAPIDJSON_NAMESPACE_END
 
 // always import std::size_t to rapidjson namespace
 RAPIDJSON_NAMESPACE_BEGIN
+#ifdef XJ380
+typedef ::size_t size_t;
+#else
 using std::size_t;
+#endif
 RAPIDJSON_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -543,6 +549,16 @@ RAPIDJSON_NAMESPACE_END
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS 0
 #endif
 #endif // RAPIDJSON_HAS_CXX11_RVALUE_REFS
+
+#ifdef XJ380
+#undef RAPIDJSON_HAS_CXX11_RVALUE_REFS
+#define RAPIDJSON_HAS_CXX11_RVALUE_REFS 0
+#undef RAPIDJSON_HAS_CXX11_TYPETRAITS
+#define RAPIDJSON_HAS_CXX11_TYPETRAITS 0
+#ifndef RAPIDJSON_NOMEMBERITERATORCLASS
+#define RAPIDJSON_NOMEMBERITERATORCLASS
+#endif
+#endif
 
 #ifndef RAPIDJSON_HAS_CXX11_NOEXCEPT
 #if defined(__clang__)

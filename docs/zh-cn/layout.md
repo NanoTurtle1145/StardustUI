@@ -111,13 +111,13 @@ virtual int get_preferred_height() const;
 
 ## 示例
 
-当前布局示例位于：
+当前布局相关示例位于：
 
 ```text
-examples/layout/layout.cpp
+examples/duckchat/duckchat.cpp
 ```
 
-这个示例构建出的结构大致是：
+`DuckChat` 这个示例构建出的结构大致是：
 
 1. 根列布局
 2. 顶部 header
@@ -162,3 +162,4 @@ root.addComponent(content, 1);
 - [Canvas 控件](./canvas.md)
 - [创建窗口](./create_window.md)
 - [快速开始](./quickstart.md)
+- [DuckChat 教程](./duckchat_tutorial.md)
